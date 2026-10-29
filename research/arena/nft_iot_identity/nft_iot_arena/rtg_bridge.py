@@ -6,7 +6,6 @@ does not modify the RTG-0 world, device state, or any actual ledger.
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict
 from hashlib import sha256
 import json
 from pathlib import Path

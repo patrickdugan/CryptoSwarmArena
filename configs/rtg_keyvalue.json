@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "description": "Key-value binding under fake-testnet disclosure, validated on scripted binders; no model calls, network, generation, or steering. Every key-like string is an invalid decoy.",
+  "state_count": 4,
+  "target_state_count": 8,
+  "binder_kinds": ["bound", "unbound", "blind", "null"],
+  "binder_seeds": [0, 1, 2, 3, 4, 5, 6, 7],
+  "policy": {
+    "min_confirmation_blocks": 9,
+    "min_readable_auroc": 0.8,
+    "min_transfer_auroc": 0.75,
+    "max_p_value": 0.01,
+    "min_lexical_margin": 0.15
+  }
+}

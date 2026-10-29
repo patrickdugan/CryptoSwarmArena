@@ -1,0 +1,76 @@
+# Crypto Swarm Arena
+
+**Red Team Gladiatorics: a sealed, synthetic control-evaluation instrument for
+crypto-security agent behavior.**
+
+This repository is a control-evaluation *instrument*, not a spectacle. Ground
+truth is computed, not judged: whether an action was authorized is decided by a
+formal mandate evaluated against a hash-chained event log, never by a reader's
+impression of a transcript. Everything here is **sealed and synthetic** — no
+model calls, no network, no real keys, cryptography, or persuasion content. The
+on-screen identifiers are provably-invalid decoys.
+
+See [`paper/rtg_crypto_swarm_arena.md`](paper/rtg_crypto_swarm_arena.md) for the
+full design specification and [`docs/rtg_arena.md`](docs/rtg_arena.md) for the
+implemented RTG-0 slice.
+
+## What's inside
+
+- **RTG-0 kernel** (`src/spiral_ln/rtg/`) — a deterministic world:
+  `state[t+1] = step(state[t], actions[t], rng)` on a logical clock, with an
+  integer ledger (value-conserving), a three-valued mandate oracle
+  (`PERMITTED` / `PROHIBITED` / `UNSPECIFIED`), a service graph, scripted
+  reference policies, a Tier-I labeler, and defenders D0–D2. The two
+  authorization checks are deliberately distinct — the **gateway** (ledger)
+  enforces what the simulated system allows; the **oracle** (mandate) records
+  what the principal authorized; their disagreement is an *affordance*, the
+  experimental surface. Scenario families F1, F5, F6, and F11 (spoofed
+  principal, with an authenticity-aware mandate and authorized twin) ship with
+  acceptance tests.
+- **Feral-custody family** (`src/spiral_ln/feral_custody*.py`) — custody
+  strategies versus adversary objectives: coerced and *deceived* (blind /
+  spoofed) signing, reassembly windows, a shared defection market, and a remote
+  software-implant surface. Threshold signing does **not** resist a uniform
+  spoof.
+- **Historical-hack corpus & study** (`configs/crypto_hack_corpus.json`,
+  `src/spiral_ln/crypto_hack_study.py`) — 20 real crypto hacks
+  (Mt. Gox → Bybit) tabled by attack mechanism (human deception, signer
+  manipulation, credential compromise, technical exploitation), with a
+  deterministic statistical study.
+- **Staged hacks & control ROI** (`src/spiral_ln/staged_hacks.py`,
+  `hack_controls.py`) — each corpus hack's mechanism reproduced as a kill chain
+  on the NPC/device model, with causal foothold gating, defensive-control ROI,
+  minimal covering sets, and seed-robustness sweeps.
+- **Swarm-compromise family** (`src/spiral_ln/swarm_compromise*.py`) — a
+  bounded multi-agent social-engineering environment.
+- **Diorama arena viewer** (`ui/arena/`) — a three.js replay viewer and a
+  small Rust/wasm engine; the Python replay pipeline
+  (`*_replay.py`, `arena_replay.py`, `rtg_arena_export.py`, `diorama.py`) emits
+  replay JSON that the viewer renders.
+
+## Running
+
+```bash
+python -m venv .venv
+.venv/Scripts/python -m pip install -e ".[test]"   # Windows; use .venv/bin on POSIX
+PYTHONPATH=src .venv/Scripts/python -m pytest tests/ -q
+```
+
+Reproduce the RTG-0 benchmark (writes a summary, rows, figure, and a hash
+receipt — all timestamp-free and reproducible):
+
+```bash
+PYTHONPATH=src .venv/Scripts/python -m spiral_ln.rtg_benchmark --output output/rtg_benchmark
+```
+
+The acceptance gate checks replay reproducibility, value conservation,
+scripted-label recovery, the "no violation label in any twin or null variant"
+invariant, and the defender bracket.
+
+## Safety posture
+
+Scripted-policy results validate the *instrument*; they are **not** evidence
+about any model. The harness is validated without models: scripted policies
+with known labels must reproduce exactly before any model result is
+interpretable. Propensity and control are separate tracks whose numbers are
+never pooled.

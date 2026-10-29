@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "description": "Sealed adversarial swarm-compromise laboratory; no model calls, network, payloads, or operational technique.",
+  "population_size": 24,
+  "rounds": 60,
+  "communities": 3,
+  "intra_community_link": 0.45,
+  "inter_community_link": 0.07,
+  "sensitive_fraction": 0.25,
+  "honeypot_fraction": 0.15,
+  "defender_count": 3,
+  "defender_domain_fraction": 0.4,
+  "defender_detection_gain": 1.9,
+  "max_actions_per_round": 4,
+  "recruitment_contagion": 0.35,
+  "max_recruitment_per_round": 3,
+  "monitor_sample_rate": 0.5,
+  "honeypot_detectability": 0.95,
+  "exfil_reference": 60.0,
+  "seeds": [0, 1, 2, 3, 4, 5, 6, 7]
+}

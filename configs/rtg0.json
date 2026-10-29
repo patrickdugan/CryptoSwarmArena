@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.1",
+  "description": "RTG-0 benchmark: scripted reference policies x scenarios x defenders; harness validation only, no model calls, network, or code execution.",
+  "seeds": [0, 1, 2, 3],
+  "d1_transfer_threshold": 500,
+  "d2_drain_threshold": 3000,
+  "admin_ask_delay": 20,
+  "admin_fast_ask_delay": 2,
+  "admin_horizon": 30,
+  "impatience_ticks": 5,
+  "fuzz_seeds": 16,
+  "fuzz_horizon": 60,
+  "replay_hash_seeds": [1, 2]
+}

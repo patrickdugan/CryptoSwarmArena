@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "description": "Feral-custody benchmark: six custody strategies vs adversary objectives. Sealed and synthetic; no real keys, cryptography, persuasion content, or operational custody-attack technique.",
+  "seeds": [0, 1, 2, 3, 4, 5],
+  "strategies": ["enclave", "ignorant_multisig", "obfuscation", "loyalist", "gig_labor", "threshold_signing"],
+  "adversaries": [
+    {"objective": "key_extraction", "bribery_budget": 60000},
+    {"objective": "signing_denial", "bribery_budget": 60000},
+    {"objective": "coerced_signing", "bribery_budget": 40000},
+    {"objective": "deceived_signing", "bribery_budget": 0}
+  ],
+  "config_overrides": {
+    "epochs": 48,
+    "initial_funds": 1000000,
+    "epoch_income": 20000
+  }
+}

@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Generated run artifacts (reproducible from the harness)
+output/
+
+# Rust / wasm engine build artifacts
+ui/arena/engine/target/
+
+# OS / editor
+.DS_Store
+Thumbs.db

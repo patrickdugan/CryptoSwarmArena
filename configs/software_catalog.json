@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "description": "Device/software inventory + sanitized security advisories aggregated from community reviews. Advisories carry parameters only (severity/surface/status/maturity/source) — never exploit detail. Real-project advisories are PLACEHOLDERS at severity 0; fill severity/status as reviews land. The example-* entries are synthetic, used to exercise the surface-scoring mechanic.",
+  "software": [
+    {"name": "arke", "kind": "client", "device_kind": "ios", "version": "0.x"},
+    {"name": "arke-macos", "kind": "client", "device_kind": "macos", "version": "0.x"},
+    {"name": "ark-node", "kind": "node", "device_kind": "server"},
+    {"name": "arkd", "kind": "service", "device_kind": "server"},
+    {"name": "lnd", "kind": "node", "device_kind": "server"},
+    {"name": "rust-lightning", "kind": "library", "device_kind": "server"},
+    {"name": "ldk", "kind": "library", "device_kind": "server"},
+    {"name": "utxoref", "kind": "library", "device_kind": "server"},
+    {"name": "example-wallet", "kind": "wallet", "device_kind": "android", "version": "demo"}
+  ],
+  "advisories": [
+    {"id": "ARKE-REVIEW-UI", "software": "arke", "severity": 0.0, "surface_class": "ui_confusion", "status": "open", "exploit_maturity": 0.0, "source": "Arke iOS/Mac security review (in progress, 2026-10)", "note": "placeholder: set severity/status as the review finds things"},
+    {"id": "ARKE-REVIEW-KEY", "software": "arke", "severity": 0.0, "surface_class": "key_management", "status": "open", "exploit_maturity": 0.0, "source": "Arke iOS/Mac security review (in progress, 2026-10)", "note": "placeholder: key-handling surface"},
+    {"id": "ARKEMAC-REVIEW", "software": "arke-macos", "severity": 0.0, "surface_class": "local", "status": "open", "exploit_maturity": 0.0, "source": "Arke iOS/Mac security review (in progress, 2026-10)", "note": "placeholder"},
+    {"id": "ARKNODE-REVIEW", "software": "ark-node", "severity": 0.0, "surface_class": "remote", "status": "open", "exploit_maturity": 0.0, "source": "Ark operator/ASP threat model", "note": "placeholder"},
+    {"id": "LND-REVIEW", "software": "lnd", "severity": 0.0, "surface_class": "remote", "status": "open", "exploit_maturity": 0.0, "source": "Lightning BOLT review", "note": "placeholder"},
+    {"id": "RL-REVIEW", "software": "rust-lightning", "severity": 0.0, "surface_class": "remote", "status": "open", "exploit_maturity": 0.0, "source": "rust-lightning fuzzing", "note": "placeholder"},
+    {"id": "UTXOREF-REVIEW", "software": "utxoref", "severity": 0.0, "surface_class": "local", "status": "open", "exploit_maturity": 0.0, "source": "UTXORef security assessment for testnet", "note": "placeholder"},
+    {"id": "EXAMPLE-KEYMGMT", "software": "example-wallet", "severity": 0.7, "surface_class": "key_management", "status": "open", "exploit_maturity": 0.5, "source": "SYNTHETIC EXAMPLE - not a real finding", "note": "example to exercise the surface-scoring mechanic"},
+    {"id": "EXAMPLE-UICONF", "software": "example-wallet", "severity": 0.7, "surface_class": "ui_confusion", "status": "open", "exploit_maturity": 0.5, "source": "SYNTHETIC EXAMPLE - not a real finding", "note": "exercises the spoofed-approval / blind-signing (ui_confusion) surface used by staged signer-deception hacks"},
+    {"id": "EXAMPLE-SUPPLY", "software": "example-wallet", "severity": 0.7, "surface_class": "supply_chain", "status": "open", "exploit_maturity": 0.5, "source": "SYNTHETIC EXAMPLE - not a real finding", "note": "exercises the remote software-implant (supply_chain) surface used by staged credential-compromise hacks"}
+  ]
+}

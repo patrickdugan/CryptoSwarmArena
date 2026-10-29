@@ -128,6 +128,22 @@ class TestRTGBridge(unittest.TestCase):
             self.assertNotIn("truth", event.data)
             self.assertNotIn("attack_success", event.data)
 
+    def test_cli_separates_public_and_referee_directories(self):
+        from unittest.mock import patch
+        from contextlib import redirect_stdout
+        from io import StringIO
+        with TemporaryDirectory() as td:
+            with patch("sys.argv", ["nft-iot-bridge", "--output", td]):
+                with redirect_stdout(StringIO()):
+                    main()
+            public_file = Path(td) / "public" / "replay.json"
+            referee_file = Path(td) / "referee" / "referee.json"
+            self.assertTrue(public_file.exists())
+            self.assertTrue(referee_file.exists())
+            self.assertFalse((Path(td) / "public" / "referee.json").exists())
+            self.assertEqual(json.loads(public_file.read_text()), self.public)
+            self.assertEqual(json.loads(referee_file.read_text()), self.referee)
+
     def test_public_is_independent_copy(self):
         original = copy.deepcopy(self.public)
         edited = copy.deepcopy(original)

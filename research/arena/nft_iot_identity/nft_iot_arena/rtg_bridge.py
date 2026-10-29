@@ -229,19 +229,21 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Export separated IoT referee and public RTG scenes")
     parser.add_argument("--output", type=Path, default=Path("output/nft_iot_rtg"))
     args = parser.parse_args()
-    args.output.mkdir(parents=True, exist_ok=True)
+    public_dir = args.output / "public"
+    referee_dir = args.output / "referee"
+    public_dir.mkdir(parents=True, exist_ok=True)
+    referee_dir.mkdir(parents=True, exist_ok=True)
     referee = evaluate()
     public = public_replay(referee)
-    # These files have different sharing permissions; only the public file goes
-    # to the diorama or an agent process. Keep referee.json evaluator-side.
-    (args.output / "public_replay.json").write_text(
+    # Keep evaluator files out of the directory served to agents / viewers.
+    (public_dir / "replay.json").write_text(
         json.dumps(public, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    (args.output / "referee.json").write_text(
+    (referee_dir / "referee.json").write_text(
         json.dumps(referee, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     for mode in ("nft", "registry"):
         rows = _public_rows(referee, mode)
         log = make_event_log(rows)
-        (args.output / f"{mode}_rtg_hash.json").write_text(json.dumps({
+        (referee_dir / f"{mode}_rtg_hash.json").write_text(json.dumps({
             "schema": SCHEMA + ".hash", "head": log.head,
             "event_count": len(log), "mode": mode,
         }, indent=2, sort_keys=True) + "\n", encoding="utf-8")

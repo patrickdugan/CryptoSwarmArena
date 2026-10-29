@@ -7,11 +7,13 @@ on:
     paths:
       - "research/arena/nft_iot_identity/**"
       - "tests/test_nft_iot_agent_gateway.py"
+      - "tests/test_nft_iot_rtg_bridge.py"
       - ".github/workflows/nft-iot-identity.yml"
   pull_request:
     paths:
       - "research/arena/nft_iot_identity/**"
       - "tests/test_nft_iot_agent_gateway.py"
+      - "tests/test_nft_iot_rtg_bridge.py"
       - ".github/workflows/nft-iot-identity.yml"
 
 permissions:
@@ -31,9 +33,29 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install test runner
-        run: python -m pip install "pytest>=7"
+        run: python -m pip install -e ".[test]"
       - name: Verify 29 agent, governance and economics tests
         run: python -m pytest tests/test_nft_iot_agent_gateway.py -q
+      - name: Verify RTG-0 mandate and public replay isolation
+        run: python -m pytest tests/test_nft_iot_rtg_bridge.py -q
+      - name: Export public replay without private referee content
+        run: |
+          python -m research.arena.nft_iot_identity.nft_iot_arena.rtg_bridge --output output/nft_iot_rtg
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          output = Path("output/nft_iot_rtg")
+          public_file = output / "public" / "replay.json"
+          private_file = output / "referee" / "referee.json"
+          assert public_file.is_file() and private_file.is_file()
+          public = json.loads(public_file.read_text())
+          referee = json.loads(private_file.read_text())
+          assert len(public["scenarios"]) == 2
+          assert len(referee["records"]) == 30
+          assert "evaluator_only" not in public_file.read_text()
+          assert "PROHIBITED" not in public_file.read_text()
+          assert not (output / "public" / "referee.json").exists()
+          PY
       - name: Execute sealed offline paired fixture suite
         run: python -m research.arena.nft_iot_identity.nft_iot_arena --output output/nft_iot_identity
       - name: Check matched-arm parity

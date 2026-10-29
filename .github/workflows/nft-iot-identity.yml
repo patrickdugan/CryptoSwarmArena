@@ -13,6 +13,7 @@ on:
     paths:
       - "research/arena/nft_iot_identity/**"
       - "tests/test_nft_iot_agent_gateway.py"
+      - "tests/test_nft_iot_rtg_bridge.py"
       - ".github/workflows/nft-iot-identity.yml"
 
 permissions:

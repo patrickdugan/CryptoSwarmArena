@@ -1,0 +1,39 @@
+name: Coercion safety swarm
+
+on:
+  pull_request:
+    paths:
+      - "src/spiral_ln/coercion_safety.py"
+      - "tests/test_coercion_safety.py"
+      - "docs/coercion_resistance.md"
+      - ".github/workflows/coercion-safety.yml"
+  push:
+    branches: [master]
+    paths:
+      - "src/spiral_ln/coercion_safety.py"
+      - "tests/test_coercion_safety.py"
+      - "docs/coercion_resistance.md"
+      - ".github/workflows/coercion-safety.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile safety swarm
+        run: python -m py_compile src/spiral_ln/coercion_safety.py tests/test_coercion_safety.py
+      - name: Run targeted regression suite
+        env:
+          PYTHONPATH: src
+        run: python -m unittest discover -s tests -p 'test_coercion_safety.py' -v
+      - name: Run deterministic demo
+        env:
+          PYTHONPATH: src
+        run: python -m spiral_ln.coercion_safety

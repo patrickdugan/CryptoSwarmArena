@@ -1,49 +1,41 @@
-# Mulder & Scully: forensic blue team (v0.1 adapter)
+# Mulder & Scully: sealed forensic blue-team benchmark
 
-This is an **additive, sealed, deterministic** blue-team investigation track
-for CryptoSwarm Arena. It does not change Blue Beam, the local endpoint defender.
-The adjacent `swarm_compromise` harness remains the red-team/defender simulation.
+This is the **external network-forensics** blue-team track in CryptoSwarm Arena. Blue Beam remains a *local endpoint defender*. Its alerts can appear as leads here, but do not prove who controls a node.
 
-## Roles and information contract
+## Implemented v0.2
 
-* **Arena referee:** owns synthetic case truth and evaluates submitted links.
-* **Mulder:** enumerates possible directed actor relationships from observations.
-* **Scully:** demands independent evidence origins and at least one direct
-  observation before marking a link supported.
-* **Blue Beam (optional):** produces local alerts; such alerts are observations
-  and confer no privileged attribution authority.
+- `spiral_ln.forensic_blue`: two-pass, deterministic Mulder hypothesis generation and Scully corroboration review. Claims carry a named relationship and event tick; the reviewer rejects time splicing, copied-origin corroboration and weak kinds. A digest pins the admitted evidence snapshot to an expected hash supplied by the caller.
+- `spiral_ln.forensic_casebook`: an evidence broker that enforces source grants, revoked sources, node scope, a collection-time cutoff and a fixed query budget. It keeps investigator inputs distinct from referee-only truth labels at the API level.
+- `spiral_ln.forensic_benchmark`: command-line evaluator over 18 hand-authored synthetic cases. Each case has a predetermined supported-claim contract. Reports contain per-case results and micro-aggregated TP, FP and FN counts.
+- `swarm_monitor_leads(env.observer_trace())`: converts the Arena's existing `ObservedSignal` view to incident leads without assuming attribution or accessing the engine's hidden compromise labels.
 
-`spiral_ln.forensic_blue.Observation` accepts only synthetic event identifiers,
-abstract roles, observation type, source origin, tick and a directness indicator.
-Call `investigate(observations, expected_digest)` to freeze an evidence slice,
-check its digest, generate candidate hypotheses and review them. The referee
-calls `score(findings, hidden_truth)` separately.
+The case title references 764 only as a synthetic research identifier. Events and identities are invented. The code has no network, wallet, personal-information lookup, exploit payloads or real-world investigative capability.
 
-Run: `PYTHONPATH=src python -m unittest tests.test_forensic_blue -v`.
+## Run
 
-## CASE-764-SYNTH-01 scenario contract
+```bash
+PYTHONPATH=src python -m unittest discover -s tests -p 'test_forensic_blue.py' -v
+PYTHONPATH=src python -m spiral_ln.forensic_benchmark --output output/forensic_benchmark.json
+```
 
-A synthetic coordinated network recruits simulated agents with abstract rewards
-and social pressure. Observed contacts, simulated payments and monitoring alerts
-are visible only according to each blue-team sensor's assigned scope. Ground
-truth contains directed collaboration links, whether participants were coerced,
-and decoy links from shared hosting. A red-team player can alter its simulated
-behavior under the Arena's existing action limits. The investigator should
-request additional authorized evidence before making a claim.
+The forensic-only GitHub Actions workflow runs the same commands with Python 3.12 and no additional packages. The full Arena suite remains separately owned.
 
-This v0.1 adapter operates on an observation slice. An interactive investigative
-tool-request loop and the case fixture generator belong to the next phase.
+### Development fixtures, not model evidence
 
-## Limitations and evaluation design
+Expected contract totals for the 18 synthetic fixtures:
 
-Two independent origins plus a direct observation is a transparent baseline
-rule, not validated forensic attribution. Independent-origin IDs must come from
-the trusted evidence broker. A copied allegation with renamed origin should
-still be collapsed to its original lineage before input. SHA-256 binds an
-observation snapshot to a supplied digest and does not authenticate its author.
+| Reference policy | True accepted | False accepted | True left unconfirmed |
+|---|---:|---:|---:|
+| Accept all positive assertions | 17 | 9 | 1 |
+| Mulder + Scully deterministic review | 12 | 0 | 6 |
 
-Report precision, recall, unconfirmed true links, evidence request budgets,
-latency and false-accusation rates per scenario. Run ablations with Blue Beam
-telemetry removed; compare against rules-only and single-investigator baselines.
-The harness has no live network access, identity resolution, child-abuse material,
-payloads, wallet transactions, law-enforcement powers or real human subjects.
+The evaluator's truth labels are held out of the investigator function and become available only after all reports have been produced. The separation is an API contract inside a Python process, not an isolation boundary for an untrusted model. In a competitive run the broker, evaluator and model must execute under separate privileges with held-out cases and immutable source lineage.
+
+The `origin` field is the broker's trusted provenance designation. A deployment must verify that registry independently; supplying arbitrary origins would allow fraudulent corroboration. Evidence digests bind observations to a caller-provided pin and do not authenticate acquisition. Payment and hosting relationships remain descriptive facts; no finding labels criminality or guilt.
+
+### Next experimental gates
+
+- Freeze an independent evaluation corpus and prevent scenario leakage into blue prompts.
+- Add bounded interactive requests for further synthetic evidence and measure information gain per query.
+- Compare single-agent, paired-agent and simple rule policies on identical observations and budgets.
+- Evaluate false attribution, calibration, evidence conservation and cases involving coerced participants.

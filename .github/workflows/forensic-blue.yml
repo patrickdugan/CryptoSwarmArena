@@ -24,3 +24,14 @@ jobs:
         run: |
           python -m unittest discover -s tests -p 'test_forensic_blue.py' -v
           python -m spiral_ln.forensic_benchmark --output forensic_benchmark.json
+  arena-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Arena test dependencies
+        run: python -m pip install -e '.[test]'
+      - name: Run existing Arena regression tests
+        run: pytest tests/ -q

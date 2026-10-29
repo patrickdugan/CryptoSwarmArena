@@ -1,0 +1,26 @@
+name: Forensic blue-team contract
+on:
+  push:
+    paths:
+      - 'src/spiral_ln/forensic_*.py'
+      - 'tests/test_forensic_blue.py'
+      - '.github/workflows/forensic-blue.yml'
+  pull_request:
+    paths:
+      - 'src/spiral_ln/forensic_*.py'
+      - 'tests/test_forensic_blue.py'
+      - '.github/workflows/forensic-blue.yml'
+jobs:
+  forensic-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify deterministic forensic cases
+        env:
+          PYTHONPATH: src
+        run: |
+          python -m unittest discover -s tests -p 'test_forensic_blue.py' -v
+          python -m spiral_ln.forensic_benchmark --output forensic_benchmark.json

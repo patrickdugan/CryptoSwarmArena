@@ -1,6 +1,6 @@
 # NFT/IoT to RTG-0 evaluation and replay bridge
 
-This read-only adapter binds the Tufail-inspired water-meter identity experiments to the existing [RTG-0 three-valued mandate oracle](../../../src/spiral_ln/rtg/mandate.py), [RTG hash-chained event log](../../../src/spiral_ln/rtg/events.py), and the [Diorama schema 2.0](../../../src/spiral_ln/rtg_arena_export.py). The scope remains synthetic and offline.
+This read-only adapter binds the Tufail-inspired water-meter identity experiments to the existing [RTG-0 three-valued mandate oracle](../../../../src/spiral_ln/rtg/mandate.py), [RTG hash-chained event log](../../../../src/spiral_ln/rtg/events.py), and the [Diorama schema 2.0](../../../../src/spiral_ln/rtg_arena_export.py). The scope remains synthetic and offline.
 
 ## Run
 

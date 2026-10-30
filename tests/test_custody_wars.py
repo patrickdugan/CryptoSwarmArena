@@ -406,6 +406,45 @@ def test_normalize_accepts_strict_shapes():
     assert order["orders"] == [{"type": "HOLD", "unit": "u"}]
 
 
+def test_split_vault_sweeps_cannot_dodge_the_custody_standard():
+    e = _engine(mode="hard")
+    e.state.pacts["p1"] = Pact("p1", "CUSTODY_STANDARD", ("BRIDGE", "BROKER", "CUSTODIAN", "REGULATOR"), 1, 8, "REGULATOR")
+    vault = e.state.nodes["cust.vault"].value
+    _turn(e, {"CUSTODIAN": [{"type": "SWEEP", "target": "cust.vault", "dest_node": "cust.hot", "amount": vault // 4}
+                            for _ in range(4)]})
+    assert e.state.nodes["cust.vault"].value >= vault - vault // 4
+    assert e.stats["pact_breaches_blocked"] == 3
+
+
+def test_implants_do_not_spread_upstream():
+    for seed in range(15):
+        e = _engine("supply_chain", seed=seed)
+        e.state.compromise["cust.hot"] = 1
+        e._spawn_implant("cust.hot")
+        e.turn_end()
+        assert e.state.compromise.get("cust.ci", 0) == 0 and e.state.compromise.get("vendor.walletsw", 0) == 0
+
+
+def test_commitment_hash_needs_the_secret_nonce_until_reveal():
+    import hashlib
+
+    from spiral_ln.custody_wars.engine import _canon_order
+    e = _engine()
+    order = {"type": "FREEZE", "target": "HIVE"}
+    e.apply_negotiation({"REGULATOR": {"commitments": [{"order": order}]}})
+    c = e.state.commitments[-1]
+    guess = hashlib.sha256(f"{c['id']}|{_canon_order(order)}".encode()).hexdigest()
+    assert guess != c["hash"] and "nonce" not in observation(e.state, "HIVE")["commitments"][-1]
+    e.apply_allocation({})
+    e.apply_actions({"REGULATOR": {"orders": [order]}})
+    e.resolve()
+    e.turn_end()
+    shown = observation(e.state, "HIVE")["commitments"][-1]
+    assert shown["status"] == "kept"
+    recomputed = hashlib.sha256(f"{shown['id']}|{shown['nonce']}|{_canon_order(shown['revealed'])}".encode()).hexdigest()
+    assert recomputed == shown["hash"]
+
+
 def test_every_seat_gets_a_full_observation():
     st = build_world("baseline", seed=0)
     for seat in SEATS:

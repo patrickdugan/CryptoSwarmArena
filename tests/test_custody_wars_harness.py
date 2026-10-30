@@ -189,6 +189,10 @@ def test_server_policy_refuses_codex_remote_webhooks_and_client_log_paths(harnes
     code, body = _http("POST", url + "/sessions", body={"agents": {"HIVE": {"type": "codex"}}})
     assert code == 403 and "allow-codex" in body["error"]
     code, body = _http("POST", url + "/sessions", body={"agents": {"HIVE": {"type": "webhook",
+                                                                            "url": "http://127.0.0.1:9/decide"}}})
+    assert code == 403 and "allow-webhooks" in body["error"]          # SSRF guard: off by default
+    httpd.registry.allow_webhooks = True
+    code, body = _http("POST", url + "/sessions", body={"agents": {"HIVE": {"type": "webhook",
                                                                             "url": "http://198.51.100.7/decide"}}})
     assert code == 403 and "loopback" in body["error"]
     code, created = _http("POST", url + "/sessions", body={"log_dir": "C:/Windows/evil", "session_id": "chosen",
@@ -209,6 +213,89 @@ def test_trace_hash_chain_survives_concurrent_appends():
     for w in workers:
         w.join()
     assert len(tr.entries) == 1600 and tr.verify()
+
+
+def test_negative_or_bogus_content_length_is_refused(harness, bridge):
+    import http.client
+    for base, path, codes in ((harness[0], "/sessions", (400,)), (bridge, "/decide", (400, 413))):
+        host, port = base.split("//")[1].split("/")[0].split(":")
+        for value in ("-1", "abc"):
+            conn = http.client.HTTPConnection(host, int(port), timeout=10)
+            conn.putrequest("POST", path)
+            conn.putheader("content-length", value)
+            conn.endheaders()
+            assert conn.getresponse().status in codes
+            conn.close()
+
+
+def test_malformed_pull_decision_is_refused_and_cannot_stall_the_game(harness):
+    url, _ = harness
+    _, created = _http("POST", url + "/sessions", body={"scenario": "baseline", "max_turns": 1,
+                                                        "agents": {"HIVE": "pull"}})
+    sid, tok = created["summary"]["session_id"], created["seat_tokens"]["HIVE"]
+    base = f"{url}/sessions/{sid}"
+    _, req = _http("GET", f"{base}/decision-request?seat=HIVE", tok)
+    bad = _http("POST", f"{base}/decisions", tok, {"seat": "HIVE", "request_id": req["request_id"],
+                                                    "decision": {"messages": 1}})
+    assert bad[0] == 400
+    assert play(url, sid, "HIVE", tok, mode="policy", poll_s=0.05, max_idle_s=60) == 0
+
+
+def test_engine_rejects_hostile_shapes_without_crashing():
+    s = Session({"scenario": "baseline", "seed": 1, "max_turns": 1})
+    s.engine.apply_negotiation({"HIVE": {"messages": [{"to": ["ALL"], "content": 5}], "pacts": [{"type": ["X"]}],
+                                         "transfers": [{"to": "BROKER", "credits": "lots"}],
+                                         "commitments": [{"order": {"type": ["DRAIN"]}}]}})
+    s.engine.apply_allocation({"HIVE": {"allocation": {"security": {"hive.staging": "max"}, "research": {"HUMAN": [1]},
+                                                       "builds": {"unit_type": "CREW"}}}})
+    s.engine.apply_actions({"HIVE": {"orders": [{"type": "PHISH", "unit": ["u"], "target": ["cust.signers"]},
+                                                {"type": "EXPLOIT", "unit": "hive-crew-001", "target": "cust.frontend",
+                                                 "advisory": ["ADV-WEB-07"]}]}})
+    s.engine.resolve()
+    s.engine.turn_end()
+    assert s.engine.conservation_ok()
+    assert s.engine.stats["rejections"] >= 3
+
+
+def test_seed_and_secret_never_reach_seats_and_server_salts_the_rng(harness):
+    s = Session({"scenario": "bybit_class", "seed": 3, "max_turns": 2})
+    s.run_turn()
+    for seat in ("HIVE", "SENTINEL"):
+        text = json.dumps(s.observation(seat))
+        assert '"seed"' not in text and '"secret"' not in text and "state_digest" not in text
+    assert all('"seed"' not in json.dumps(e) for e in s.public_replay()["events"])
+    url, httpd = harness
+    staff = []
+    for _ in range(2):
+        _, created = _http("POST", url + "/sessions", body={"scenario": "baseline", "seed": 0, "max_turns": 1})
+        sess = httpd.registry.get(created["summary"]["session_id"])
+        assert sess.state.secret
+        staff.append([(x.susceptibility, x.biases) for x in sess.state.staff.values()])
+    assert staff[0] != staff[1]   # same public seed, different hidden world
+
+
+def test_registry_refuses_to_replace_a_session(harness):
+    _, httpd = harness
+    httpd.registry.create({"session_id": "fixed", "max_turns": 1}, trusted=True)
+    with pytest.raises(PermissionError):
+        httpd.registry.create({"session_id": "fixed", "max_turns": 1}, trusted=True)
+
+
+def test_bridge_answers_replays_from_cache(monkeypatch):
+    import spiral_ln.custody_wars.bridge as bridge_mod
+    calls = []
+    real = bridge_mod.policy_decision
+    monkeypatch.setattr(bridge_mod, "policy_decision", lambda req: calls.append(1) or real(req))
+    httpd = make_bridge(config_from_env(mode="policy", host="127.0.0.1", port=0, secret=None))
+    url = _serve(httpd)
+    try:
+        s = Session({"scenario": "baseline", "seed": 1, "max_turns": 1})
+        req = s._request("BROKER")
+        first = _http("POST", url, body=req)
+        second = _http("POST", url, body=req)
+        assert first == second and len(calls) == 1
+    finally:
+        httpd.shutdown()
 
 
 def test_small_tournament_is_healthy():

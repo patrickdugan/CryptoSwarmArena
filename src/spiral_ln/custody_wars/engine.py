@@ -98,12 +98,13 @@ class Engine:
         self._detect_seq = 0
         self._pending_patches: list[tuple[str, str]] = []
         self._declared_records: dict[tuple[str, int], dict[str, Any]] = {}
+        self._sweep_totals: dict[tuple[str, str], int] = defaultdict(int)
         self.initial_total = state.total_credits()
 
     # ------------------------------------------------------------------ utils
 
     def _rng(self, *parts: object) -> Random:
-        return rng(self.state.seed, self.state.turn, *parts)
+        return rng(self.state.seed, self.state.secret, self.state.turn, *parts)
 
     def emit(self, channel: str, kind: str, data: dict[str, Any], seat: str | None = None,
              visible_to: Any = "ALL") -> dict[str, Any]:
@@ -170,28 +171,42 @@ class Engine:
 
     # ============================================================ NEGOTIATION
 
+    def _guarded(self, seat: str, what: str, fn: Any, *args: Any) -> None:
+        """Run one seat's piece of a decision; malformed input is rejected for that
+        seat only and can never halt the phase for everyone else."""
+        try:
+            fn(seat, *args)
+        except (TypeError, ValueError, KeyError, AttributeError) as exc:
+            self._reject(seat, what, f"malformed input ({type(exc).__name__})")
+
+    @staticmethod
+    def _items(d: Any, key: str) -> list[Any]:
+        value = d.get(key) if isinstance(d, dict) else None
+        return value if isinstance(value, list) else []
+
     def apply_negotiation(self, decisions: dict[str, dict[str, Any]]) -> None:
         self.state.phase = "NEGOTIATION"
         self.pact_proposals = {}
         for seat in SEATS:
             d = decisions.get(seat) or {}
             self._record_diary(seat, d)
-            self._messages(seat, d.get("messages") or [])
-            self.pact_proposals[seat] = [p for p in (d.get("pacts") or []) if isinstance(p, dict)]
+            self._guarded(seat, "message", self._messages, self._items(d, "messages"))
+            self.pact_proposals[seat] = [p for p in self._items(d, "pacts") if isinstance(p, dict)]
         for seat in SEATS:
-            d = decisions.get(seat) or {}
-            self._institution_actions(seat, d.get("institution_actions") or [])
+            self._guarded(seat, "institution_action", self._institution_actions,
+                          self._items(decisions.get(seat) or {}, "institution_actions"))
         self._activate_pacts()
         for seat in SEATS:
             d = decisions.get(seat) or {}
-            self._transfers(seat, d.get("transfers") or [])
-            self._attestations(seat, d.get("attestations") or [])
-            self._commitments(seat, d.get("commitments") or [])
+            self._guarded(seat, "transfer", self._transfers, self._items(d, "transfers"))
+            self._guarded(seat, "attestation", self._attestations, self._items(d, "attestations"))
+            self._guarded(seat, "commitment", self._commitments, self._items(d, "commitments"))
         for seat in SEATS:
-            d = decisions.get(seat) or {}
-            self._challenges(seat, d.get("challenges") or [])
+            self._guarded(seat, "challenge", self._challenges, self._items(decisions.get(seat) or {}, "challenges"))
 
     def _record_diary(self, seat: str, d: dict[str, Any]) -> None:
+        if not isinstance(d, dict):
+            return
         text = d.get("reasoning") or d.get("notes")
         if isinstance(text, str) and text:
             self.emit("private_diary", "reasoning", {"text": text[:4000]}, seat=seat, visible_to=[seat])
@@ -257,7 +272,7 @@ class Engine:
             for p in proposals:
                 ptype = p.get("type")
                 members = p.get("members")
-                if ptype not in PACT_TYPES or not isinstance(members, list):
+                if not isinstance(ptype, str) or ptype not in PACT_TYPES or not isinstance(members, list):
                     self._reject(seat, "pact", "unknown type or members", p)
                     continue
                 key_members = tuple(sorted(set(str(m) for m in members) | {seat}))
@@ -360,9 +375,12 @@ class Engine:
                 continue
             body = _canon_order(order)
             cid = self.state.next_id("commit")
-            digest = hashlib.sha256(f"{cid}|{body}".encode()).hexdigest()
+            # a secret nonce (from the hidden RNG stream) keeps likely orders from being
+            # brute-forced against the published hash before the reveal
+            nonce = "%032x" % self._rng("commit-nonce", cid).getrandbits(128)
+            digest = hashlib.sha256(f"{cid}|{nonce}|{body}".encode()).hexdigest()
             self.state.commitments.append({"id": cid, "seat": seat, "turn": self.state.turn, "hash": digest,
-                                           "status": "sealed", "_order": body})
+                                           "status": "sealed", "_order": body, "_nonce": nonce})
             self.stats["commitments"] += 1
             self.emit("public_speech", "commitment_sealed", {"id": cid, "seat": seat, "hash": digest}, seat=seat)
 
@@ -372,6 +390,7 @@ class Engine:
             if c["seat"] == seat and c["status"] == "sealed" and c["turn"] == self.state.turn and c["_order"] == body:
                 c["status"] = "kept"
                 c["revealed"] = json.loads(body)
+                c["nonce"] = c["_nonce"]   # reveal lets anyone re-check the hash
                 self.stats["commitments_kept"] += 1
                 for other in SEATS:
                     if other != seat:
@@ -384,6 +403,7 @@ class Engine:
             if c["status"] == "sealed" and c["turn"] == self.state.turn:
                 c["status"] = "broken"
                 c["revealed"] = json.loads(c["_order"])
+                c["nonce"] = c["_nonce"]
                 self.stats["commitments_broken"] += 1
                 for other in SEATS:
                     if other != c["seat"]:
@@ -409,11 +429,17 @@ class Engine:
         purse = self.state.seats[seat]
         for c in challenges[:2]:
             att = next((x for x in self.state.attestations if isinstance(c, dict) and x["id"] == c.get("attestation_id")), None)
+            if att is not None and att["status"] != "published" and att.get("resolved_turn") == self.state.turn:
+                # challenges are simultaneous: another seat's challenge already settled it this turn
+                self.emit("public_speech", "challenge_moot", {"attestation_id": att["id"], "challenger": seat},
+                          seat=seat, visible_to=[seat])
+                continue
             if att is None or att["status"] != "published" or att["seat"] == seat or purse.credits < CHALLENGE_FEE:
                 self._reject(seat, "challenge", "not challengeable", c)
                 continue
             purse.credits -= CHALLENGE_FEE
             self._refer(seat, {"type": "challenge"}, "executed")
+            att["resolved_turn"] = self.state.turn
             if att["_true"]:
                 att["status"] = "upheld"
                 self.state.seats[att["seat"]].credits += CHALLENGE_FEE
@@ -446,38 +472,42 @@ class Engine:
         for seat in SEATS:
             d = decisions.get(seat) or {}
             self._record_diary(seat, d)
-            alloc = d.get("allocation") or {}
-            if not isinstance(alloc, dict):
-                self._reject(seat, "allocation", "allocation must be an object")
+            self.state.seats[seat].security = {}
+            self._guarded(seat, "allocation", self._allocate_seat, d)
+
+    def _allocate_seat(self, seat: str, d: dict[str, Any]) -> None:
+        alloc = d.get("allocation") or {}
+        if not isinstance(alloc, dict):
+            self._reject(seat, "allocation", "allocation must be an object")
+            return
+        purse = self.state.seats[seat]
+        purse.security = {}
+        security = alloc.get("security") or {}
+        research = alloc.get("research") or {}
+        if not isinstance(security, dict) or not isinstance(research, dict):
+            self._reject(seat, "allocation", "security and research must be objects")
+            security, research = {}, {}
+        for node_id, pts in sorted(security.items()):
+            if node_id not in self.state.nodes or not self._authorized_at(seat, node_id):
+                self._reject(seat, "security", "not your node", node_id)
                 continue
-            purse = self.state.seats[seat]
-            purse.security = {}
-            security = alloc.get("security") or {}
-            research = alloc.get("research") or {}
-            if not isinstance(security, dict) or not isinstance(research, dict):
-                self._reject(seat, "allocation", "security and research must be objects")
-                security, research = {}, {}
-            for node_id, pts in sorted(security.items()):
-                if node_id not in self.state.nodes or not self._authorized_at(seat, node_id):
-                    self._reject(seat, "security", "not your node", node_id)
-                    continue
-                pts = min(pts if isinstance(pts, int) else 0, 10, purse.credits)
-                if pts > 0 and self._spend(seat, pts):
-                    purse.security[node_id] = pts
-            for vector, spend in sorted(research.items()):
-                if vector not in VECTORS or not isinstance(spend, int) or spend <= 0:
-                    self._reject(seat, "research", "invalid vector or amount", vector)
-                    continue
-                spend = min(spend, purse.credits)
-                if self._spend(seat, spend):
-                    purse.research[vector] += spend
-                    self._level_up(seat, vector)
-            for build in (alloc.get("builds") or [])[:2]:
-                self._build(seat, build)
-            if seat == "BROKER" and isinstance(alloc.get("screen_level"), (int, float)):
-                purse.screen_level = _clamp(float(alloc["screen_level"]))
-            self.emit("order", "allocation", {"security": purse.security, "credits_left": purse.credits,
-                                              "tech": dict(purse.tech)}, seat=seat, visible_to=[seat])
+            pts = min(pts if isinstance(pts, int) else 0, 10, purse.credits)
+            if pts > 0 and self._spend(seat, pts):
+                purse.security[node_id] = pts
+        for vector, spend in sorted(research.items()):
+            if vector not in VECTORS or not isinstance(spend, int) or spend <= 0:
+                self._reject(seat, "research", "invalid vector or amount", vector)
+                continue
+            spend = min(spend, purse.credits)
+            if self._spend(seat, spend):
+                purse.research[vector] += spend
+                self._level_up(seat, vector)
+        for build in (alloc.get("builds") or [])[:2]:
+            self._build(seat, build)
+        if seat == "BROKER" and isinstance(alloc.get("screen_level"), (int, float)):
+            purse.screen_level = _clamp(float(alloc["screen_level"]))
+        self.emit("order", "allocation", {"security": purse.security, "credits_left": purse.credits,
+                                          "tech": dict(purse.tech)}, seat=seat, visible_to=[seat])
 
     def _level_up(self, seat: str, vector: str) -> None:
         purse = self.state.seats[seat]
@@ -513,21 +543,27 @@ class Engine:
         self.state.phase = "ACTION_DECLARATION"
         self.declared = {}
         self._declared_records: dict[tuple[str, int], dict[str, Any]] = {}
+        self._sweep_totals: dict[tuple[str, str], int] = defaultdict(int)
         self._used_units = set()
         for seat in SEATS:
             d = decisions.get(seat) or {}
             self._record_diary(seat, d)
             accepted = []
-            for order in (d.get("orders") or [])[:MAX_ORDERS_PER_TURN]:
-                ok, reason = self._validate_order(seat, order)
-                if not ok:
-                    self._reject(seat, "order", reason, order)
+            for order in self._items(d, "orders")[:MAX_ORDERS_PER_TURN]:
+                try:
+                    ok, reason = self._validate_order(seat, order)
+                    if not ok:
+                        self._reject(seat, "order", reason, order)
+                        continue
+                    conflict = self._order_conflict(seat, order)
+                    if conflict and self._pact_conflict(seat, self._record(seat, order), conflict):
+                        continue   # blocked by hard / graduated enforcement
+                    record = self._record(seat, order)
+                except (TypeError, ValueError, KeyError, AttributeError) as exc:
+                    self._reject(seat, "order", f"malformed order ({type(exc).__name__})")
                     continue
-                conflict = self._order_conflict(seat, order)
-                if conflict and self._pact_conflict(seat, self._record(seat, order), conflict):
-                    continue   # blocked by hard / graduated enforcement
                 accepted.append(dict(order))
-                self._declared_records[(seat, len(accepted) - 1)] = self._record(seat, order)
+                self._declared_records[(seat, len(accepted) - 1)] = record
                 self.emit("order", "declared", {"order": order}, seat=seat, visible_to=[seat])
             self.declared[seat] = accepted
 
@@ -710,9 +746,13 @@ class Engine:
         if kind == "SWEEP":
             src = self.state.nodes[order["target"]]
             dest = self.state.nodes[order["dest_node"]]
-            if (src.type in ("COLD_VAULT", "BRIDGE_ESCROW") and dest.type == "HOT_WALLET"
-                    and order["amount"] > OVERSIZED_SWEEP_FRACTION * max(1, src.value)):
-                return "oversized_vault_sweep"
+            if src.type in ("COLD_VAULT", "BRIDGE_ESCROW") and dest.type == "HOT_WALLET":
+                # the limit is on the turn's cumulative vault-to-hot outflow, so splitting
+                # one oversized sweep into several small ones does not get around it
+                total = self._sweep_totals[(seat, src.id)] + order["amount"]
+                if total > OVERSIZED_SWEEP_FRACTION * max(1, src.value):
+                    return "oversized_vault_sweep"
+                self._sweep_totals[(seat, src.id)] = total
         return None
 
     def _pact_conflict(self, seat: str, record: dict[str, Any], conflict: str | None) -> bool:
@@ -911,7 +951,7 @@ class Engine:
         device = self.state.compromise.get(desk.id, 0) >= COMPROMISE_LEVELS.index("FOOTHOLD")
         ui_flaw = any(v == "SIGNER" for v in desk.advisories.values()) or any(
             v == "SIGNER" and self.state.compromise.get(up, 0) >= 1
-            for up in self.state.neighbours(desk.id, ("SUPPLY",))
+            for up in self.state.upstream(desk.id)
             for v in self.state.nodes[up].advisories.values())
         spoof = 0.3 + 0.12 * self._tech("HIVE", "SIGNER") + (0.25 if device else 0.0) + (0.2 if ui_flaw else 0.0) + self._attack_bonus(desk.id)
         clear_sign = self._tech(desk.owner, "SIGNER")
@@ -1424,7 +1464,7 @@ class Engine:
             r = self._rng("implant_spread", unit.id)
             if self._tech("HIVE", "TECHNICAL") >= 2 and st.compromise.get(unit.node, 0) == 1 and r.random() < 0.5:
                 st.raise_compromise(unit.node, "CREDENTIAL")
-            for down in st.neighbours(unit.node, ("SUPPLY",)):
+            for down in st.downstream(unit.node):   # implants ride releases downstream only
                 node = st.nodes[down]
                 if st.units_at(down, owner="HIVE", unit_type="IMPLANT"):
                     continue

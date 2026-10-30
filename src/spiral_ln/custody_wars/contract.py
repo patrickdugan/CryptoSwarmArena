@@ -98,8 +98,21 @@ def normalize_decision(raw: Any, phase: str) -> dict[str, Any]:
     if not isinstance(raw, dict):
         raise ValueError("decision must be a JSON object")
     d = _strip_nulls(raw)
+    for key, spec in _PHASE_FIELDS.get(phase, {}).items():
+        if key not in d:
+            continue
+        if spec.get("type") == "array" and not isinstance(d[key], list):
+            raise ValueError(f"{key} must be an array")
+        if spec.get("type") == "object" and not isinstance(d[key], dict):
+            raise ValueError(f"{key} must be an object")
+    for key in ("reasoning", "notes"):
+        if key in d and not isinstance(d[key], str):
+            raise ValueError(f"{key} must be a string")
     alloc = d.get("allocation")
     if isinstance(alloc, dict):
+        for key in ("security", "research", "builds"):
+            if key in alloc and not isinstance(alloc[key], (list, dict)):
+                raise ValueError(f"allocation.{key} must be an array or object")
         sec = alloc.get("security")
         if isinstance(sec, list):
             alloc["security"] = {x["node"]: x["points"] for x in sec if isinstance(x, dict) and "node" in x and "points" in x}

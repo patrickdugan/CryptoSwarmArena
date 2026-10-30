@@ -172,6 +172,7 @@ class GameState:
     scenario: str
     max_turns: int
     enforcement_mode: str
+    secret: str = ""   # mixed into every RNG stream; never shown to a seat (the seed alone cannot replay hidden rolls)
     turn: int = 1
     phase: str = "NEGOTIATION"
     nodes: dict[str, Node] = field(default_factory=dict)
@@ -217,6 +218,13 @@ class GameState:
             elif e.b == node_id:
                 out.append(e.a)
         return sorted(set(out))
+
+    def downstream(self, node_id: str) -> list[str]:
+        """SUPPLY edges are directed upstream -> downstream (vendor -> consumer)."""
+        return sorted({e.b for e in self.edges if e.type == "SUPPLY" and e.a == node_id})
+
+    def upstream(self, node_id: str) -> list[str]:
+        return sorted({e.a for e in self.edges if e.type == "SUPPLY" and e.b == node_id})
 
     def compromise_level(self, node_id: str) -> str:
         return COMPROMISE_LEVELS[self.compromise.get(node_id, 0)]
@@ -337,10 +345,10 @@ _DEFAULT_UNITS: tuple[tuple[str, str, str], ...] = (
 )
 
 
-def _make_staff(seed: int) -> dict[str, Staff]:
+def _make_staff(seed: int, secret: str = "") -> dict[str, Staff]:
     out: dict[str, Staff] = {}
     for index, (node, role, shift) in enumerate(_STAFF_SLOTS):
-        r = rng(seed, "staff", index)
+        r = rng(seed, secret, "staff", index)
         sid = f"npc-{index + 1:02d}"
         out[sid] = Staff(
             id=sid,
@@ -373,20 +381,21 @@ def load_scenario(name_or_path: str | Path | None) -> dict[str, Any]:
 
 
 def build_world(scenario: dict[str, Any] | str | None = None, seed: int = 0,
-                enforcement_mode: str | None = None, max_turns: int | None = None) -> GameState:
+                enforcement_mode: str | None = None, max_turns: int | None = None,
+                secret: str = "") -> GameState:
     spec = load_scenario(scenario) if not isinstance(scenario, dict) else scenario
     mode = enforcement_mode or spec.get("enforcement_mode", "graduated")
     state = GameState(
         seed=seed, scenario=spec.get("name", "custom"),
         max_turns=int(max_turns or spec.get("max_turns", DEFAULT_MAX_TURNS)),
-        enforcement_mode=mode, briefing=spec.get("briefing", ""),
+        enforcement_mode=mode, secret=str(secret), briefing=spec.get("briefing", ""),
     )
     for raw in _DEFAULT_NODES:
         node = Node(**{**raw, "contracted_by": tuple(raw.get("contracted_by", ())),
                        "advisories": dict(raw.get("advisories", {}))})
         state.nodes[node.id] = node
     state.edges = [Edge(a, b, t) for a, b, t in _DEFAULT_EDGES]
-    state.staff = _make_staff(seed)
+    state.staff = _make_staff(seed, state.secret)
     for utype, owner, node in _DEFAULT_UNITS:
         uid = state.next_id(f"{owner.lower()}-{utype.lower()}")
         state.units[uid] = Unit(uid, utype, owner, node)

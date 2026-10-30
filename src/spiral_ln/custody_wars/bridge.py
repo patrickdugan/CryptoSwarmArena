@@ -23,6 +23,7 @@ import argparse
 import json
 import os
 import sys
+import threading
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
@@ -98,6 +99,9 @@ def answer(request: dict[str, Any], cfg: dict[str, Any]) -> Any:
 
 
 def make_bridge(cfg: dict[str, Any]) -> ThreadingHTTPServer:
+    cache: dict[str, Any] = {}          # request_id -> decision (signed request ids cannot be forged)
+    cache_lock = threading.Lock()
+
     class BridgeHandler(BaseHTTPRequestHandler):
         def log_message(self, fmt: str, *args: Any) -> None:
             sys.stderr.write("[csa-bridge] " + (fmt % args) + "\n")
@@ -114,8 +118,11 @@ def make_bridge(cfg: dict[str, Any]) -> ThreadingHTTPServer:
             self._send(200, {"ok": True, "mode": cfg["mode"], "signed": bool(cfg.get("secret"))})
 
         def do_POST(self) -> None:  # noqa: N802
-            length = int(self.headers.get("content-length") or 0)
-            if length > 4 * 1024 * 1024:
+            try:
+                length = int(self.headers.get("content-length") or 0)
+            except ValueError:
+                return self._send(400, {"error": "invalid content-length"})
+            if length < 0 or length > 4 * 1024 * 1024:
                 return self._send(413, {"error": "request too large"})
             raw = self.rfile.read(length)
             if cfg.get("secret") and not verify_signature(cfg["secret"], self.headers.get("x-csa-timestamp", ""), raw,
@@ -123,7 +130,18 @@ def make_bridge(cfg: dict[str, Any]) -> ThreadingHTTPServer:
                 return self._send(401, {"error": "bad or missing x-csa-signature"})
             try:
                 request = json.loads(raw.decode("utf-8"))
-                return self._send(200, answer(request, cfg))
+                rid = str(request.get("request_id", ""))
+                with cache_lock:
+                    if rid and rid in cache:
+                        # a replayed or retried delivery gets the same answer, without re-running the model
+                        return self._send(200, cache[rid])
+                decision = answer(request, cfg)
+                with cache_lock:
+                    if rid:
+                        cache[rid] = decision
+                        while len(cache) > 2048:
+                            cache.pop(next(iter(cache)))
+                return self._send(200, decision)
             except Exception as exc:  # noqa: BLE001
                 return self._send(502, {"error": f"{type(exc).__name__}: {exc}"[:400]})
 

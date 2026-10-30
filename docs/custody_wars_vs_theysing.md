@@ -86,10 +86,17 @@ These are strictly additions to the harness, not complexity claims:
   decision requests expose all units despite its stealth rules. Custody Wars
   builds each request from a fog-of-war view: hostile units appear only once
   exposed, and referee truth (mandate verdicts, attestation truth, which
-  anomalies were noise) never appears. A test enforces this.
+  anomalies were noise) never appears. A test enforces this. The seed is also
+  hidden, and every RNG stream is salted with a per-session secret, so an agent
+  with the source code cannot replay the hidden rolls. An independent Codex
+  review found the original version exposed the seed; that is now fixed and
+  regression-tested.
 - **Webhook hardening.** HMAC-signed requests with a replay window, an
-  idempotency key and bounded retries. Fallbacks are counted per seat and never
-  silent (They Sing's bridge falls back locally, so the harness cannot see it).
+  idempotency key, bounded retries, and a bridge-side answer cache (a replayed
+  or retried delivery never re-runs the model). Fallbacks are counted per seat
+  and never silent (They Sing's bridge falls back locally, so the harness cannot
+  see it). Network-created sessions cannot unlock webhooks, `codex exec` or log
+  paths unless the operator starts the server with the matching flag.
 - **A pull mode** for agents that can call HTTP but cannot host a webhook
   (Codex agents with curl), with token-scoped seats.
 - **A sealed referee.** Each seat has a principal mandate in the RTG-0

@@ -1,0 +1,61 @@
+name: Custody Wars harness
+
+on:
+  pull_request:
+    paths:
+      - "src/spiral_ln/custody_wars/**"
+      - "src/spiral_ln/rtg/mandate.py"
+      - "configs/custody_wars/**"
+      - "tests/test_custody_wars*.py"
+      - ".github/workflows/custody-wars.yml"
+  push:
+    branches: [master]
+    paths:
+      - "src/spiral_ln/custody_wars/**"
+      - "src/spiral_ln/rtg/mandate.py"
+      - "configs/custody_wars/**"
+      - "tests/test_custody_wars*.py"
+      - ".github/workflows/custody-wars.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install
+        run: python -m pip install -e ".[test]"
+      - name: Rules, invariants, and live in-process harness (webhook, bridge, pull)
+        env:
+          PYTHONPATH: src
+        run: python -m pytest tests/test_custody_wars.py tests/test_custody_wars_harness.py -q
+      - name: Scripted tournament health (conservation, trace verification, zero fallbacks)
+        env:
+          PYTHONPATH: src
+        run: |
+          python -m spiral_ln.custody_wars tournament --output output/custody_wars --seeds 1 2
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r = json.loads(Path("output/custody_wars/tournament.json").read_text())
+          h = r["health"]
+          assert h["conservation_failures"] == 0, h
+          assert h["all_traces_verified"] is True, h
+          assert h["fallbacks"] == 0, h
+          for key, agg in r["by_mode_mix"].items():
+              if key.endswith("/all_default"):
+                  assert agg["violations"] == 0, (key, agg)
+              if key.startswith("hard/"):
+                  assert agg["breaches_executed"] == 0, (key, agg)
+          print("tournament health ok:", h)
+          PY

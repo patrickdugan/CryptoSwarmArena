@@ -79,7 +79,7 @@ class Session:
         self.agents = _normalize_agents(config.get("agents"))
         self.state = build_world(config.get("scenario"), seed=int(config.get("seed", 0)),
                                  enforcement_mode=config.get("enforcement_mode"),
-                                 max_turns=config.get("max_turns"))
+                                 max_turns=config.get("max_turns"), secret=str(config.get("secret", "")))
         self.engine = Engine(self.state)
         self.trace = Trace()
         self.log_dir = Path(config["log_dir"]) if config.get("log_dir") else None
@@ -93,9 +93,11 @@ class Session:
         self.conservation_failures = 0
         self._codex_decider = codex_decider
         self._log("session", "created", {"session_id": self.id, "scenario": self.state.scenario,
-                                          "seed": self.state.seed, "enforcement_mode": self.state.enforcement_mode,
-                                          "agents": {s: a["type"] for s, a in self.agents.items()},
-                                          "state_digest": snapshot_digest(self.state)})
+                                          "enforcement_mode": self.state.enforcement_mode,
+                                          "agents": {s: a["type"] for s, a in self.agents.items()}})
+        # seed, secret and the full-state digest would let a seat replay hidden rolls: referee only
+        self._log("referee", "rng_identity", {"seed": self.state.seed, "secret": self.state.secret,
+                                              "state_digest": snapshot_digest(self.state)}, visible_to="REFEREE")
 
     # ----------------------------------------------------------------- views
 
@@ -283,6 +285,7 @@ class Session:
             "schema": SCHEMA_VERSION + ".referee_report",
             "sealed": True,
             "session_id": self.id, "scenario": self.state.scenario, "seed": self.state.seed,
+            "secret": self.state.secret,
             "enforcement_mode": self.state.enforcement_mode,
             "turns_played": self.state.turn, "end_reason": self.state.end_reason,
             "scores": self.engine.scores(),

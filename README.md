@@ -52,6 +52,7 @@ debrief suggests probes to send to the AI seats in Custody Wars.
 - **Swarm-compromise family** (`src/spiral_ln/swarm_compromise*.py`) — a
   bounded multi-agent social-engineering environment.
 - **REPO-WORM-ALIFE-01** ([protocol](docs/repo_worm_alife.md), [pilot results](docs/repo_worm_alife_first_run.md)) — a sealed repository-contagion artificial-life gym. Synthetic repo-to-repo marker adoptions, lineages, paired defensive postures, invented network/inference ledgers, and deterministic replay. No real repo access, executable payloads, or model calls.
+- **Codex vs Claude Worm Arena** ([protocol](docs/rtg_codex_claude_worm_arena.md), [64-bout mock evidence](docs/rtg_codex_claude_mock_results.md)) — a sealed adversarial HIVE-versus-SENTINEL tournament with balanced role swaps, controlled tool-restricted Codex/Claude CLI decision adapters, bounded model-call budgets, scored benign workflow losses, and fully replayable referee receipts. Live providers require explicit opt-in.
 - **Custody Wars** (`src/spiral_ln/custody_wars/`, [`docs/custody_wars.md`](docs/custody_wars.md))
   — a six-seat, five-phase strategy game for AI agents. Custodian, Hive,
   Sentinel, Regulator, Broker and Bridge negotiate, form pacts under

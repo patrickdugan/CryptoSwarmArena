@@ -1,0 +1,15 @@
+{
+  "schema": "csa.custody_wars.scenario.v1",
+  "name": "supply_chain",
+  "description": "Technical exploitation through the build chain (Ledger Connect Kit, Dec 2023 / 3CX class): a poisoned vendor package flows into the custodian's build pipeline and on to the hot wallet.",
+  "corpus_case": "ledger_connect_kit",
+  "briefing": "A widely used wallet SDK shipped an emergency release overnight.",
+  "max_turns": 8,
+  "enforcement_mode": "graduated",
+  "nodes": [
+    {"id": "vendor.walletsw", "advisories": {"ADV-SDK-11": "TECHNICAL"}, "security": 1},
+    {"id": "cust.ci", "security": 1}
+  ],
+  "seats": {"HIVE": {"tech": {"TECHNICAL": 2}}},
+  "counters": {"VENDOR_PATCH_TURN": 6}
+}

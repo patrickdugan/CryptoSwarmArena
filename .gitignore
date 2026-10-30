@@ -20,3 +20,6 @@ ui/arena/engine/target/
 # OS / editor
 .DS_Store
 Thumbs.db
+
+# Local bridge secrets (may contain an API key)
+playtest/custody_wars/bridge.env

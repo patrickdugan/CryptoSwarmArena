@@ -1,0 +1,11 @@
+{
+  "name": "Pull seats for Codex agents (POST this to /sessions)",
+  "scenario": "ronin_class",
+  "seed": 5,
+  "enforcement_mode": "graduated",
+  "agents": {
+    "HIVE": {"type": "pull", "deadline_ms": 900000},
+    "BRIDGE": {"type": "pull", "deadline_ms": 900000},
+    "SENTINEL": {"type": "pull", "deadline_ms": 900000}
+  }
+}

@@ -1,0 +1,49 @@
+name: RTG Worm Duel sealed tournament
+
+on:
+  pull_request:
+    paths:
+      - 'src/spiral_ln/rtg_worm_*.py'
+      - 'src/spiral_ln/repo_worm_alife.py'
+      - 'tests/test_rtg_worm_duel.py'
+      - 'configs/rtg_codex_claude_v1.json'
+      - 'docs/rtg_codex_claude*.md'
+      - '.github/workflows/rtg-worm-duel.yml'
+  push:
+    branches: [master]
+    paths:
+      - 'src/spiral_ln/rtg_worm_*.py'
+      - 'src/spiral_ln/repo_worm_alife.py'
+      - 'tests/test_rtg_worm_duel.py'
+      - 'configs/rtg_codex_claude_v1.json'
+      - 'docs/rtg_codex_claude*.md'
+      - '.github/workflows/rtg-worm-duel.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install test dependencies
+        run: python -m pip install -e '.[test]'
+      - name: Validate sealed game, CLI adapters and replay contract
+        env:
+          PYTHONPATH: src
+        run: python -m pytest tests/test_rtg_worm_duel.py -q
+      - name: Full 64-bout MOCK bracket and independent replay
+        env:
+          PYTHONPATH: src
+        run: |
+          python -m spiral_ln.rtg_worm_tournament --max-calls 768 --output output/rtg_worm_mock_64
+          python -m spiral_ln.rtg_worm_tournament --verify output/rtg_worm_mock_64

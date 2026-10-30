@@ -17,6 +17,11 @@ See [`paper/rtg_crypto_swarm_arena.md`](paper/rtg_crypto_swarm_arena.md) for the
 full design specification and [`docs/rtg_arena.md`](docs/rtg_arena.md) for the
 implemented RTG-0 slice.
 
+**New here? Start with [Heist Desk](docs/heist_desk.md)** (`ui/play/index.html`).
+It is the eval as a small game: 15 real heists from 2014 to 2025 replay against
+the one control you pick. A two-minute tutorial walks you through it, and each
+debrief suggests probes to send to the AI seats in Custody Wars.
+
 ## What's inside
 
 - **RTG-0 kernel** (`src/spiral_ln/rtg/`) — a deterministic world:

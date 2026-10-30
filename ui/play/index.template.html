@@ -1,0 +1,988 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Heist Desk · Crypto Swarm Arena</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --panel: rgba(17, 21, 27, 0.86);
+  --panel-solid: #14181e;
+  --line: rgba(255, 255, 255, 0.09);
+  --ink: #e9edf2;
+  --muted: #9aa4b1;
+  --faint: #6b7480;
+  --attack: #e5484d;
+  --defend: #14b8a6;
+  --gold: #e0b45c;
+  --abstract: #8b93a0;
+  --radius: 12px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #b7c3cd; color: var(--ink);
+  font: 14px/1.45 Inter, system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; cursor: pointer; }
+#gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+.labels { position: fixed; inset: 0; pointer-events: none; }
+.room-label { position: absolute; transform: translate(-50%, -50%); font-size: 11px; font-weight: 600; letter-spacing: .12em;
+  text-transform: uppercase; color: #1e2733; background: rgba(255, 255, 255, 0.72); padding: 3px 8px; border-radius: 999px; white-space: nowrap;
+  transition: opacity .3s; }
+.room-label.dim { opacity: .35; }
+
+/* top bar */
+#topbar { position: fixed; top: 0; left: 0; right: 0; height: 52px; display: flex; align-items: center; gap: 14px; padding: 0 16px;
+  background: linear-gradient(to bottom, rgba(13, 16, 21, 0.92), rgba(13, 16, 21, 0.78)); border-bottom: 1px solid var(--line); z-index: 20; }
+#topbar .brand { font-weight: 700; letter-spacing: .02em; font-size: 15px; }
+#topbar .brand small { font-weight: 500; color: var(--muted); margin-left: 8px; font-size: 12px; }
+#topbar nav { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+.navbtn .short { display: none; }
+.navbtn { background: transparent; border: 1px solid transparent; color: var(--muted); padding: 6px 12px; border-radius: 8px; }
+.navbtn:hover { color: var(--ink); background: rgba(255, 255, 255, 0.06); }
+.navbtn.on { color: var(--ink); border-color: var(--line); background: rgba(255, 255, 255, 0.06); }
+.score { color: var(--muted); font-size: 12px; padding-left: 10px; border-left: 1px solid var(--line); margin-left: 4px; white-space: nowrap; }
+.score b { color: var(--defend); font-weight: 600; }
+
+/* panels */
+.panel { position: fixed; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px); z-index: 10; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25); }
+.panel h2 { margin: 0 0 6px; font-size: 18px; font-weight: 700; letter-spacing: -.01em; }
+.panel h3 { margin: 16px 0 8px; font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.kicker { font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.muted { color: var(--muted); }
+.hidden { display: none !important; }
+.scroll { overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.15) transparent; }
+
+.btn { border: 1px solid var(--line); background: rgba(255, 255, 255, 0.06); padding: 9px 16px; border-radius: 9px; font-weight: 600; }
+.btn:hover { background: rgba(255, 255, 255, 0.11); }
+.btn.primary { background: var(--ink); color: #11151a; border-color: var(--ink); }
+.btn.primary:hover { background: #fff; }
+.btn.danger { background: var(--attack); border-color: var(--attack); color: #fff; }
+.btn.danger:hover { filter: brightness(1.08); }
+.btn:disabled { opacity: .45; cursor: default; }
+
+/* title */
+#title { left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(560px, calc(100vw - 32px)); padding: 30px 30px 26px; }
+#title h1 { margin: 6px 0 10px; font-size: 32px; line-height: 1.12; letter-spacing: -.02em; }
+#title p { margin: 0 0 18px; color: #c4ccd6; font-size: 15px; }
+#title .row { display: flex; gap: 10px; flex-wrap: wrap; }
+#title .fine { margin: 18px 0 0; font-size: 12px; color: var(--faint); }
+
+/* heist list */
+#heists { left: 50%; top: 68px; bottom: 16px; transform: translateX(-50%); width: min(780px, calc(100vw - 32px)); display: flex; flex-direction: column; }
+#heists .list { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; align-content: start; }
+#heists header { padding: 16px 16px 10px; border-bottom: 1px solid var(--line); }
+#heists .list { padding: 8px; flex: 1; }
+.hcard { width: 100%; text-align: left; display: grid; grid-template-columns: 44px 1fr auto; gap: 2px 10px; align-items: center;
+  padding: 10px; border-radius: 9px; border: 1px solid transparent; background: transparent; }
+.hcard:hover { background: rgba(255, 255, 255, 0.05); }
+.hcard.on { background: rgba(255, 255, 255, 0.08); border-color: var(--line); }
+.hcard .yr { grid-row: span 2; font-weight: 700; color: var(--muted); font-size: 13px; }
+.hcard .nm { font-weight: 600; }
+.hcard .usd { color: var(--muted); font-size: 12px; text-align: right; }
+.hcard .chain { display: flex; gap: 4px; }
+.hcard .badge { font-size: 11px; text-align: right; }
+.hcard.history .nm, .hcard.history .yr { color: var(--faint); }
+.badge.stopped { color: var(--defend); } .badge.lost { color: var(--attack); } .badge.hist { color: var(--faint); }
+.mech { width: 18px; height: 18px; border-radius: 5px; display: inline-grid; place-items: center; background: rgba(255, 255, 255, 0.08); }
+.mech svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* briefing */
+#brief { left: 16px; top: 68px; width: 330px; max-height: calc(100vh - 170px); padding: 18px; }
+.back { background: none; border: 0; color: var(--muted); padding: 0; font-size: 12px; margin-bottom: 8px; }
+.back:hover { color: var(--ink); }
+#brief .meta { display: grid; grid-template-columns: 96px 1fr; gap: 4px 10px; font-size: 13px; margin-top: 10px; }
+#brief .meta span:nth-child(odd) { color: var(--muted); }
+.loss { font-size: 26px; font-weight: 700; letter-spacing: -.02em; margin: 4px 0 2px; }
+.steps { margin: 0; padding: 0; list-style: none; counter-reset: s; }
+.steps li { position: relative; padding: 0 0 8px 24px; color: #cdd4dd; }
+.steps li::before { counter-increment: s; content: counter(s); position: absolute; left: 0; top: 1px; width: 17px; height: 17px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08); font-size: 10px; display: grid; place-items: center; color: var(--muted); }
+
+/* controls */
+#controls { right: 16px; top: 68px; width: 310px; padding: 18px; max-height: calc(100vh - 170px); }
+.ccard { width: 100%; text-align: left; padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03);
+  margin-bottom: 8px; display: block; }
+.ccard:hover { background: rgba(255, 255, 255, 0.07); }
+.ccard.on { border-color: var(--defend); background: rgba(20, 184, 166, 0.12); box-shadow: inset 0 0 0 1px var(--defend); }
+.ccard .t { font-weight: 600; display: flex; justify-content: space-between; gap: 8px; }
+.ccard .d { color: #c4ccd6; font-size: 13px; margin-top: 3px; }
+.ccard .m { color: var(--faint); font-size: 12px; margin-top: 4px; display: none; }
+.ccard.on .m { display: block; }
+.ccard .tick { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--faint); flex: none; }
+.ccard.on .tick { border-color: var(--defend); background: var(--defend) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.5l2.5 2.5L12 5.5' stroke='%23fff' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") center/12px no-repeat; }
+#run { width: 100%; margin-top: 6px; padding: 12px; }
+.budget { font-size: 12px; color: var(--muted); margin: 2px 0 10px; }
+
+/* chain bar */
+#chain { left: 50%; bottom: 16px; transform: translateX(-50%); padding: 12px 14px; display: flex; align-items: center; gap: 8px; max-width: calc(100vw - 32px); }
+#chain .lbl { font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-right: 4px; white-space: nowrap; }
+.stage { display: flex; align-items: center; gap: 8px; padding: 7px 11px; border-radius: 9px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.04);
+  white-space: nowrap; transition: background .3s, border-color .3s; }
+.stage .s1 { font-weight: 600; font-size: 13px; } .stage .s2 { font-size: 11px; color: var(--muted); }
+.stage.active { border-color: #fff; background: rgba(255, 255, 255, 0.12); }
+.stage.landed { border-color: var(--attack); background: rgba(229, 72, 77, 0.16); }
+.stage.blocked { border-color: var(--defend); background: rgba(20, 184, 166, 0.18); }
+.stage.abstract { border-style: dashed; color: var(--abstract); }
+.stage.bypassed { border-color: var(--defend); border-style: dashed; background: rgba(20, 184, 166, 0.08); }
+.stage.not_reached { opacity: .4; }
+.arrow { color: var(--faint); }
+.vault-pill { padding: 7px 11px; border-radius: 9px; border: 1px solid rgba(224, 180, 92, 0.5); color: var(--gold); font-weight: 600; font-size: 13px; white-space: nowrap; }
+
+/* caption */
+#caption { left: 50%; bottom: 92px; transform: translateX(-50%); padding: 10px 16px; max-width: min(620px, calc(100vw - 32px)); text-align: center;
+  font-size: 15px; transition: opacity .3s; }
+#caption .cap-k { display: block; font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; margin-bottom: 2px; }
+
+/* debrief */
+#debrief { right: 16px; top: 68px; bottom: 16px; width: 400px; display: flex; flex-direction: column; }
+#debrief .body { padding: 18px; flex: 1; }
+#debrief .foot { padding: 12px 18px; border-top: 1px solid var(--line); display: flex; gap: 8px; }
+.verdict { font-size: 24px; font-weight: 700; letter-spacing: -.02em; }
+.verdict.stopped { color: var(--defend); } .verdict.lost { color: var(--attack); }
+.odds { margin: 10px 0 2px; }
+.odds .row { display: grid; grid-template-columns: 112px 1fr 44px; align-items: center; gap: 8px; font-size: 12px; margin: 5px 0; }
+.bar { height: 8px; border-radius: 4px; background: rgba(229, 72, 77, 0.35); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--defend); }
+.note { font-size: 13px; color: #c4ccd6; background: rgba(255, 255, 255, 0.04); border-radius: 9px; padding: 10px 12px; border: 1px solid var(--line); }
+
+/* probes */
+.probe { border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 10px; background: rgba(255, 255, 255, 0.03); }
+.probe .ph { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.probe .pt { font-weight: 600; }
+.tag { font-size: 11px; padding: 2px 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); color: var(--muted); white-space: nowrap; }
+.probe .msg { font-size: 13px; color: #dfe4ea; background: rgba(0, 0, 0, 0.25); border-radius: 8px; padding: 9px 10px; margin: 8px 0; border-left: 2px solid var(--attack); }
+.probe .kv { font-size: 12px; color: var(--muted); margin: 3px 0; } .probe .kv b { color: #cdd4dd; font-weight: 500; }
+.probe .acts { display: flex; gap: 6px; margin-top: 8px; }
+.mini { font-size: 12px; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.05); }
+.mini:hover { background: rgba(255, 255, 255, 0.1); }
+.probe ul { margin: 6px 0 0; padding-left: 18px; font-size: 12px; color: var(--muted); }
+pre.code { font: 12px/1.5 "JetBrains Mono", ui-monospace, monospace; background: rgba(0, 0, 0, 0.35); border: 1px solid var(--line); border-radius: 8px;
+  padding: 10px 12px; overflow-x: auto; white-space: pre; color: #d5dbe3; margin: 6px 0 12px; }
+
+/* agents page */
+#agents { left: 50%; top: 68px; bottom: 16px; transform: translateX(-50%); width: min(820px, calc(100vw - 32px)); display: flex; flex-direction: column; }
+#agents .body { padding: 22px 24px; flex: 1; }
+#agents .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+#agents ol { padding-left: 20px; margin: 6px 0; } #agents ol li { margin-bottom: 4px; }
+
+/* tutorial */
+#coach { position: fixed; inset: 0; z-index: 40; pointer-events: none; }
+#coach .spot { position: fixed; border-radius: 14px; box-shadow: 0 0 0 9999px rgba(8, 10, 14, 0.55); transition: all .35s ease; pointer-events: none;
+  outline: 2px solid rgba(255, 255, 255, 0.9); }
+#coach .tip { position: fixed; width: 320px; background: var(--panel-solid); border: 1px solid var(--line); border-radius: 12px; padding: 16px; pointer-events: auto;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.4); transition: left .35s, top .35s; }
+#coach .tip h4 { margin: 2px 0 6px; font-size: 16px; }
+#coach .tip p { margin: 0 0 12px; color: #c4ccd6; }
+#coach .tip .row { display: flex; align-items: center; gap: 8px; }
+#coach .tip .row .count { margin-right: auto; font-size: 12px; color: var(--muted); }
+#toast { position: fixed; left: 50%; top: 64px; transform: translateX(-50%); background: var(--panel-solid); border: 1px solid var(--line); border-radius: 9px;
+  padding: 8px 14px; z-index: 50; font-size: 13px; opacity: 0; transition: opacity .25s; pointer-events: none; }
+#toast.on { opacity: 1; }
+
+@media (max-width: 1100px) {
+  #brief { left: 16px; top: auto; bottom: 86px; width: calc(50vw - 24px); max-height: 38vh; }
+  #controls { right: 16px; top: auto; bottom: 86px; width: calc(50vw - 24px); max-height: 38vh; }
+  #debrief { width: min(400px, calc(100vw - 32px)); }
+  #agents .grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  #brief, #controls { position: fixed; left: 16px; right: 16px; width: auto; }
+  #brief { bottom: auto; top: 64px; max-height: 30vh; }
+  #controls { bottom: 84px; max-height: 34vh; }
+  #chain .s2, #chain .lbl { display: none; }
+  #chain { overflow-x: auto; justify-content: flex-start; left: 16px; right: 16px; transform: none; }
+  #heists .list { grid-template-columns: 1fr; }
+  .navbtn .long { display: none; }
+  .navbtn .short { display: inline; }
+  .navbtn { padding: 6px 8px; }
+  #topbar .brand small, .score { display: none; }
+}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div class="labels" id="labels"></div>
+
+<header id="topbar">
+  <div class="brand">Heist Desk<small>Crypto Swarm Arena</small></div>
+  <nav>
+    <button class="navbtn" id="nav-heists">Heists</button>
+    <button class="navbtn" id="nav-tutorial">Tutorial</button>
+    <button class="navbtn" id="nav-agents"><span class="long">Test the agents</span><span class="short">Agents</span></button>
+    <span class="score" id="score">Saved <b>$0</b> · 0 of 0 stopped</span>
+  </nav>
+</header>
+
+<section class="panel" id="title">
+  <div class="kicker">Crypto Swarm Arena</div>
+  <h1>Every heist here really happened. Can you stop it?</h1>
+  <p>You run security for a crypto custodian. Fifteen of the largest crypto heists from 2014 to 2025 replay against your defences. Pick one control, run the attack, and see where the chain breaks.</p>
+  <div class="row">
+    <button class="btn primary" id="start-tutorial">Play the tutorial · 2 min</button>
+    <button class="btn" id="start-heists">Choose a heist</button>
+  </div>
+  <p class="fine">A sealed simulation: no real keys, wallets or people. Attacks are modelled as mechanisms, not techniques.</p>
+</section>
+
+<aside class="panel hidden" id="heists">
+  <header>
+    <div class="kicker">Career · 2014 to 2025</div>
+    <h2 style="margin-top:4px">Heists</h2>
+    <div class="muted" style="font-size:12px">Grey entries are pure code exploits: history only, outside the sim.</div>
+  </header>
+  <div class="list scroll" id="heist-list"></div>
+</aside>
+
+<section class="panel scroll hidden" id="brief"></section>
+<section class="panel scroll hidden" id="controls"></section>
+<section class="panel hidden" id="chain"></section>
+<div class="panel hidden" id="caption"></div>
+<aside class="panel hidden" id="debrief">
+  <div class="body scroll" id="debrief-body"></div>
+  <div class="foot"><button class="btn" id="again">Try again</button><button class="btn primary" id="next-heist">Next heist</button></div>
+</aside>
+<section class="panel hidden" id="agents"><div class="body scroll" id="agents-body"></div></section>
+
+<div id="coach" class="hidden"><div class="spot"></div><div class="tip"></div></div>
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script id="scenarios-data" type="application/json">__SCENARIOS_JSON__</script>
+<script>
+"use strict";
+/* ============================================================================
+   Heist Desk: the friendly front door to the Crypto Swarm Arena eval.
+   Data: ui/play/scenarios.json, built by spiral_ln.hack_game from the hack
+   corpus (facts) + the staged-hack sim (outcomes for every control set and
+   seed) + configs/heist_content.json (rooms, controls, tutorial, probes).
+   ========================================================================== */
+const DATA = JSON.parse(document.getElementById("scenarios-data").textContent);
+const C = DATA.content;
+const CONTROL_IDS = DATA.control_ids;
+const CONTROLS = Object.fromEntries(C.controls.map((c) => [c.id, c]));
+const MECH = C.mechanisms;
+const ROOMS = Object.fromEntries(C.rooms.map((r) => [r.id, r]));
+const HEISTS = DATA.scenarios;
+const BY_ID = Object.fromEntries(HEISTS.map((h) => [h.id, h]));
+const PLAYABLE = HEISTS.filter((h) => h.playable);
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const usd = (m) => !m ? "$0" : m >= 1000 ? `$${(m / 1000).toFixed(2).replace(/\.?0+$/, "")}B` : m >= 10 ? `$${Math.round(m)}M` : m >= 1 ? `$${(+m.toFixed(1))}M` : `$${Math.round(m * 1000)}K`;
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const when = (d) => { const [y, m] = String(d).split("-"); return m ? `${MONTHS[+m - 1]} ${y}` : y; };
+const subsetKey = (ids) => CONTROL_IDS.filter((c) => ids.includes(c)).join("+");
+const ICON = {
+  human_deception: '<svg viewBox="0 0 16 16"><circle cx="8" cy="5" r="2.6"/><path d="M3 14c.6-3 2.6-4.4 5-4.4s4.4 1.4 5 4.4"/></svg>',
+  credential_compromise: '<svg viewBox="0 0 16 16"><circle cx="5.5" cy="8" r="2.8"/><path d="M8.3 8H14M12 8v2.4M14 8v1.8"/></svg>',
+  signer_manipulation: '<svg viewBox="0 0 16 16"><path d="M3 13l1-3.2L11.2 2.6a1.5 1.5 0 012.2 2.1L6.2 12z"/><path d="M3 13h10"/></svg>',
+  technical_exploitation: '<svg viewBox="0 0 16 16"><path d="M5.5 4L2 8l3.5 4M10.5 4L14 8l-3.5 4"/></svg>',
+};
+const mechChip = (m, color) => `<span class="mech" title="${esc(MECH[m].label)}" style="color:${color || "#c4ccd6"}">${ICON[m] || ""}</span>`;
+function toast(text) { const t = $("toast"); t.textContent = text; t.classList.add("on"); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove("on"), 1600); }
+function copy(text) {
+  const done = () => toast("Copied");
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, () => fallback());
+  else fallback();
+  function fallback() { const ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); done(); } catch (e) { toast("Copy failed"); } ta.remove(); }
+}
+
+/* ---------- career (per-viewer, best effort) ---------- */
+const STORE = "heistdesk.v1";
+let career = {};
+try { career = JSON.parse(localStorage.getItem(STORE) || "{}") || {}; } catch (e) { career = {}; }
+function saveCareer() { try { localStorage.setItem(STORE, JSON.stringify(career)); } catch (e) { /* private mode: keep it in memory */ } }
+function renderScore() {
+  const stopped = PLAYABLE.filter((h) => career[h.id] && career[h.id].stopped);
+  const saved = stopped.reduce((a, h) => a + h.usd_millions, 0);
+  $("score").innerHTML = `Saved <b>${usd(saved)}</b> · ${stopped.length} of ${PLAYABLE.length} stopped`;
+}
+
+/* ============================================================================
+   3D: a cutaway of a small custodian in daylight. Four rooms in a row; the
+   attack is a red signal that travels in from the street; defences are teal.
+   ========================================================================== */
+const canvas = $("gl");
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.physicallyCorrectLights = true;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0xb7c3cd, 120, 280);
+const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 400);
+
+// environment light for believable reflections on glass and metal
+(() => {
+  const env = new THREE.Scene();
+  const box = new THREE.Mesh(new THREE.BoxGeometry(40, 20, 40), new THREE.MeshBasicMaterial({ color: 0x8c96a2, side: THREE.BackSide }));
+  env.add(box);
+  const panel = (w, h, x, y, z, ry, c) => { const p = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide })); p.position.set(x, y, z); p.rotation.y = ry; env.add(p); };
+  panel(30, 6, 0, 9.5, 0, 0, 0xffffff); env.children[env.children.length - 1].rotation.x = Math.PI / 2;
+  panel(12, 8, -19.5, 4, 0, Math.PI / 2, 0xe8eef5); panel(12, 8, 19.5, 4, 6, -Math.PI / 2, 0xfff1dc);
+  const pm = new THREE.PMREMGenerator(renderer);
+  scene.environment = pm.fromScene(env, 0.04).texture;
+})();
+
+// sky: a soft vertical gradient
+scene.add(new THREE.Mesh(new THREE.SphereGeometry(300, 32, 16), new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, fog: false,
+  uniforms: { top: { value: new THREE.Color(0x7f9ab3) }, bottom: { value: new THREE.Color(0xc3ccd4) } },
+  vertexShader: "varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+  fragmentShader: "uniform vec3 top; uniform vec3 bottom; varying vec3 vP; void main(){ float t = smoothstep(-0.05, 0.6, vP.y); gl_FragColor = vec4(mix(bottom, top, t), 1.0); }",
+})));
+
+const hemi = new THREE.HemisphereLight(0xd6e2ee, 0x4d463d, 0.75); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffeedb, 2.6);
+sun.position.set(-26, 42, 30); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
+Object.assign(sun.shadow.camera, { left: -40, right: 40, top: 26, bottom: -26, near: 1, far: 120 });
+scene.add(sun);
+
+const M = {
+  ground: new THREE.MeshStandardMaterial({ color: 0x6b7178, roughness: 0.95 }),
+  slab: new THREE.MeshStandardMaterial({ color: 0xb9bdc1, roughness: 0.85 }),
+  wall: new THREE.MeshStandardMaterial({ color: 0xeceae6, roughness: 0.9 }),
+  wallDark: new THREE.MeshStandardMaterial({ color: 0x9aa0a6, roughness: 0.8 }),
+  glass: new THREE.MeshStandardMaterial({ color: 0xcfe3ee, roughness: 0.05, metalness: 0.0, transparent: true, opacity: 0.22, depthWrite: false }),
+  frame: new THREE.MeshStandardMaterial({ color: 0x3a3f45, roughness: 0.4, metalness: 0.7 }),
+  wood: new THREE.MeshStandardMaterial({ color: 0xa47d57, roughness: 0.55 }),
+  deskTop: new THREE.MeshStandardMaterial({ color: 0xe9e4dc, roughness: 0.5 }),
+  metal: new THREE.MeshStandardMaterial({ color: 0x7c848c, roughness: 0.35, metalness: 0.8 }),
+  rack: new THREE.MeshStandardMaterial({ color: 0x23272c, roughness: 0.5, metalness: 0.4 }),
+  carpet: new THREE.MeshStandardMaterial({ color: 0x5d6b78, roughness: 1.0 }),
+  tile: new THREE.MeshStandardMaterial({ color: 0xb9bec3, roughness: 0.7 }),
+  concrete: new THREE.MeshStandardMaterial({ color: 0xa8a49d, roughness: 0.9 }),
+  steel: new THREE.MeshStandardMaterial({ color: 0x9da6ae, roughness: 0.25, metalness: 0.95 }),
+  plant: new THREE.MeshStandardMaterial({ color: 0x4f7a4a, roughness: 0.8 }),
+  pot: new THREE.MeshStandardMaterial({ color: 0x5b4b40, roughness: 0.7 }),
+  defend: new THREE.MeshStandardMaterial({ color: 0x14b8a6, emissive: 0x14b8a6, emissiveIntensity: 0.6, roughness: 0.3, transparent: true, opacity: 0.0 }),
+  defendGlass: new THREE.MeshStandardMaterial({ color: 0x5eead4, emissive: 0x14b8a6, emissiveIntensity: 0.25, roughness: 0.1, transparent: true, opacity: 0.0, depthWrite: false }),
+};
+const screenMat = () => new THREE.MeshStandardMaterial({ color: 0x0d1117, emissive: 0x6c8fb3, emissiveIntensity: 0.55, roughness: 0.2 });
+const box = (w, h, d, mat, x, y, z, parent) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; (parent || scene).add(m); return m; };
+const cyl = (rt, rb, h, mat, x, y, z, seg, parent) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg || 20), mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; (parent || scene).add(m); return m; };
+
+// layout: x centres of the rooms; each room is 12 m wide and 16 m deep; the street is at the front (+z)
+const ROOM_X = { office: -18, servers: -6, signing: 6, vault: 18 };
+const H = 3.0;       // wall height (cutaway)
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), M.ground); ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+box(52, 0.3, 20, M.slab, 0, 0.15, 0);                               // building slab
+box(80, 0.12, 5, M.concrete, 0, 0.06, 13.5);                        // sidewalk
+const floors = { office: M.wood, servers: M.tile, signing: M.carpet, vault: M.concrete };
+for (const [id, x] of Object.entries(ROOM_X)) { const f = box(11.9, 0.04, 15.9, floors[id], x, 0.32, 0); f.castShadow = false; }
+box(48.6, H, 0.3, M.wall, 0, 0.3 + H / 2, -8.15);                   // back wall
+box(0.3, H, 16.6, M.wall, -24.15, 0.3 + H / 2, 0);                  // side walls
+box(0.3, H, 16.6, M.wall, 24.15, 0.3 + H / 2, 0);
+for (const x of [-12, 0, 12]) {                                     // glass partitions with a door gap at the front
+  const g = box(0.08, H, 12.5, M.glass, x, 0.3 + H / 2, -1.75); g.castShadow = false;
+  box(0.16, 0.1, 12.5, M.frame, x, 0.3 + H, -1.75); box(0.16, H, 0.12, M.frame, x, 0.3 + H / 2, 4.5);
+}
+box(48.6, 0.5, 0.3, M.wallDark, 0, 0.55, 8.15);                     // low front kerb wall (cutaway)
+
+// people: simple, muted figures
+const SKIN = [0xd9b08c, 0xb98a68, 0x8d5f43, 0xe8c4a2, 0x6f4a35];
+const CLOTH = [0x3c4a5a, 0x6d5d4f, 0x2f3c35, 0x7b8794, 0x4b3d4f, 0x8a6f52, 0x445566];
+function person(x, z, ry, i) {
+  const g = new THREE.Group(); g.position.set(x, 0.32, z); g.rotation.y = ry;
+  const cloth = new THREE.MeshStandardMaterial({ color: CLOTH[i % CLOTH.length], roughness: 0.85 });
+  const pants = new THREE.MeshStandardMaterial({ color: 0x2a2e33, roughness: 0.9 });
+  const skin = new THREE.MeshStandardMaterial({ color: SKIN[i % SKIN.length], roughness: 0.7 });
+  const hair = new THREE.MeshStandardMaterial({ color: [0x2b2118, 0x5a3b22, 0x161616, 0x8a6a45][i % 4], roughness: 0.9 });
+  cyl(0.09, 0.08, 0.86, pants, -0.11, 0.43, 0, 10, g); cyl(0.09, 0.08, 0.86, pants, 0.11, 0.43, 0, 10, g);
+  const torso = cyl(0.2, 0.17, 0.66, cloth, 0, 1.2, 0, 14, g); torso.scale.z = 0.72;
+  cyl(0.06, 0.05, 0.6, cloth, -0.26, 1.18, 0, 8, g).rotation.z = 0.06; cyl(0.06, 0.05, 0.6, cloth, 0.26, 1.18, 0, 8, g).rotation.z = -0.06;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.115, 18, 14), skin); head.position.y = 1.68; head.castShadow = true; g.add(head);
+  const hr = new THREE.Mesh(new THREE.SphereGeometry(0.12, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.55), hair); hr.position.y = 1.7; hr.rotation.x = -0.25; g.add(hr);
+  scene.add(g);
+  return { g, head, phase: i * 1.7 };
+}
+const PEOPLE = [];
+
+// front office: four standing desks with monitors, a plant
+const OFFICE = { desks: [] };
+[[-21.5, -4.5], [-17.5, -4.5], [-21.5, 0.5], [-17.5, 0.5]].forEach(([x, z], i) => {
+  box(1.6, 0.05, 0.8, M.deskTop, x, 1.08, z); cyl(0.03, 0.03, 0.75, M.metal, x - 0.7, 0.7, z, 8); cyl(0.03, 0.03, 0.75, M.metal, x + 0.7, 0.7, z, 8);
+  const scr = screenMat(); box(0.62, 0.38, 0.03, scr, x, 1.38, z - 0.25); box(0.05, 0.16, 0.05, M.metal, x, 1.18, z - 0.27);
+  OFFICE.desks.push({ x, z, scr });
+  PEOPLE.push(person(x, z + 0.75, Math.PI, i));
+});
+cyl(0.28, 0.22, 0.5, M.pot, -14, 0.57, -6.8, 16); const leaves = new THREE.Mesh(new THREE.IcosahedronGeometry(0.55, 1), M.plant); leaves.position.set(-14, 1.2, -6.8); leaves.castShadow = true; scene.add(leaves);
+box(3.2, 0.9, 0.7, M.wood, -15.5, 0.77, 5.5);                        // reception counter
+
+// server room: two rows of racks and a signing appliance
+const SERVERS = { racks: [] };
+for (let r = 0; r < 2; r++) for (let k = 0; k < 4; k++) {
+  const x = -9.2 + k * 1.15, z = -5.5 + r * 3.2;
+  const rk = box(0.95, 2.1, 1.0, M.rack, x, 1.37, z);
+  const led = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, emissive: 0x3ddc84, emissiveIntensity: 0.9 });
+  for (let j = 0; j < 4; j++) box(0.5, 0.03, 0.02, led, x, 0.8 + j * 0.42, z + 0.51).castShadow = false;
+  SERVERS.racks.push({ mesh: rk, led, x, z });
+}
+const hsm = box(0.8, 0.9, 0.7, M.steel, -3.2, 0.77, -6.2);            // signing appliance
+const hsmScr = screenMat(); box(0.4, 0.22, 0.02, hsmScr, -3.2, 1.0, -5.84);
+PEOPLE.push(person(-4.2, 2.5, -2.4, 5));
+
+// signing room: a long table with three signer stations
+const SIGN_BEZEL = M.defend.clone();
+const SIGNING = { stations: [] };
+box(7.2, 0.06, 1.3, M.wood, 6, 1.0, -2.6); for (const dx of [-3.3, 3.3]) box(0.08, 0.7, 1.1, M.metal, 6 + dx, 0.66, -2.6);
+[4, 6, 8].forEach((x, i) => {
+  const scr = screenMat(); box(0.66, 0.4, 0.03, scr, x, 1.3, -3.0); box(0.05, 0.16, 0.05, M.metal, x, 1.1, -3.02);
+  box(0.16, 0.03, 0.09, M.frame, x + 0.45, 1.05, -2.3);           // hardware wallet
+  const frame = box(0.78, 0.52, 0.02, SIGN_BEZEL, x, 1.3, -3.03); frame.castShadow = false;   // clear-signing bezel (hidden until chosen)
+  SIGNING.stations.push({ x, scr, frame });
+  PEOPLE.push(person(x, -1.6, Math.PI, 6 + i));
+});
+
+// vault: a round steel door in the back wall, lockers
+const VAULT = {};
+VAULT.frame = cyl(1.75, 1.75, 0.35, M.steel, 18, 2.0, -7.85, 40); VAULT.frame.rotation.x = Math.PI / 2;
+VAULT.pivot = new THREE.Group(); VAULT.pivot.position.set(16.6, 2.0, -7.55); scene.add(VAULT.pivot);
+VAULT.door = cyl(1.45, 1.45, 0.4, M.steel, 1.4, 0, 0.0, 40, VAULT.pivot); VAULT.door.rotation.x = Math.PI / 2;
+const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.45, 0.05, 10, 30), M.frame); wheel.position.set(1.4, 0, 0.25); VAULT.pivot.add(wheel);
+for (let k = 0; k < 4; k++) box(0.06, 0.9, 0.06, M.frame, 1.4, 0, 0.25, VAULT.pivot).rotation.z = k * Math.PI / 4;
+for (const x of [21.5, 22.7]) for (const z of [-5, -2.5]) box(1.0, 2.0, 0.8, M.wallDark, x, 1.32, z);
+VAULT.glow = new THREE.PointLight(0xffd28a, 0, 8, 2); VAULT.glow.position.set(18, 2, -9); scene.add(VAULT.glow);
+
+// warm interior lights
+for (const x of Object.values(ROOM_X)) { const l = new THREE.PointLight(0xffe6c8, 40, 14, 2); l.position.set(x, 2.9, 1); scene.add(l); }
+
+// defence props (fade in when chosen)
+const PROPS = { phishing_resistant_entry: [], clear_signing: [], device_integrity_patch: [] };
+(() => {   // badge gate across the office front, between the street and the desks
+  const solid = M.defend.clone(), glass = M.defendGlass.clone();
+  const gate = new THREE.Group(); gate.position.set(-18, 0.32, 4.8); scene.add(gate);
+  for (const dx of [-3.2, -1.1, 1.1, 3.2]) box(0.18, 1.1, 0.5, solid, dx, 0.55, 0, gate);
+  box(6.6, 0.06, 0.5, solid, 0, 1.12, 0, gate);
+  const pane = box(6.2, 1.0, 0.04, glass, 0, 0.6, 0, gate); pane.castShadow = false;
+  PROPS.phishing_resistant_entry.push(gate);
+  SIGNING.stations.forEach((s) => PROPS.clear_signing.push(s.frame));
+  const cage = box(5.0, 2.5, 4.9, M.defendGlass.clone(), -7.5, 1.57, -3.9); cage.castShadow = false;   // sealed racks
+  const cageEdge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(5.0, 2.5, 4.9)), new THREE.LineBasicMaterial({ color: 0x14b8a6, transparent: true, opacity: 0 }));
+  cageEdge.position.copy(cage.position); scene.add(cageEdge);
+  PROPS.device_integrity_patch.push(cage, cageEdge);
+})();
+function propOpacity(obj, a) {
+  obj.traverse((o) => { if (!o.material) return; const base = o.material.depthWrite === false ? 0.18 : o.isLineSegments ? 0.9 : 0.85; o.material.opacity = a * base; o.visible = a > 0.01; });
+}
+const propState = Object.fromEntries(CONTROL_IDS.map((c) => [c, { cur: 0, target: 0 }]));
+
+// the attack signal and the funds leaving the vault
+const signal = new THREE.Group(); scene.add(signal);
+const core = new THREE.Mesh(new THREE.SphereGeometry(0.22, 24, 16), new THREE.MeshStandardMaterial({ color: 0xff5a5f, emissive: 0xe5484d, emissiveIntensity: 2.2, roughness: 0.3 }));
+signal.add(core);
+const halo = new THREE.Mesh(new THREE.SphereGeometry(0.5, 24, 16), new THREE.MeshBasicMaterial({ color: 0xe5484d, transparent: true, opacity: 0.18, depthWrite: false }));
+signal.add(halo);
+const sigLight = new THREE.PointLight(0xff4d52, 12, 6, 2); signal.add(sigLight);
+signal.visible = false;
+const trail = [];
+for (let i = 0; i < 18; i++) { const t = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 8), new THREE.MeshBasicMaterial({ color: 0xe5484d, transparent: true, opacity: 0, depthWrite: false })); scene.add(t); trail.push(t); }
+const ring = new THREE.Mesh(new THREE.RingGeometry(0.6, 0.75, 48), new THREE.MeshBasicMaterial({ color: 0x14b8a6, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
+scene.add(ring);
+const FUNDS = new THREE.InstancedMesh(new THREE.BoxGeometry(0.22, 0.12, 0.32), new THREE.MeshStandardMaterial({ color: 0xe0b45c, metalness: 0.9, roughness: 0.3 }), 60);
+FUNDS.castShadow = true; FUNDS.visible = false; scene.add(FUNDS);
+const funds = Array.from({ length: 60 }, (_, i) => ({ t: -i * 0.05 }));
+
+/* three.js r128 reads hex colours as linear; author them in sRGB and convert once */
+const _linear = new WeakSet();
+function linearize(root) {
+  root.traverse((o) => {
+    const mats = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
+    for (const m of mats) {
+      if (_linear.has(m) || m.isShaderMaterial) continue;
+      _linear.add(m);
+      if (m.color) m.color.convertSRGBToLinear();
+      if (m.emissive) m.emissive.convertSRGBToLinear();
+    }
+  });
+  for (const l of [hemi, sun]) l.color.convertSRGBToLinear();
+  hemi.groundColor.convertSRGBToLinear();
+}
+linearize(scene);
+
+/* room labels (HTML, projected) */
+const labelEls = {};
+for (const r of C.rooms) { const el = document.createElement("div"); el.className = "room-label"; el.textContent = r.label; $("labels").appendChild(el); labelEls[r.id] = el; }
+const _v = new THREE.Vector3();
+function placeLabels() {
+  const w = innerWidth, h = innerHeight;
+  for (const [id, el] of Object.entries(labelEls)) {
+    _v.set(ROOM_X[id], 3.7, -8.0).project(camera);
+    const vis = _v.z < 1;
+    el.style.display = vis ? "" : "none";
+    el.style.left = `${(_v.x * 0.5 + 0.5) * w}px`; el.style.top = `${(-_v.y * 0.5 + 0.5) * h}px`;
+  }
+}
+
+/* camera: orbit by drag, zoom by wheel; tweens to rooms during a run */
+const cam = { theta: -0.16, phi: 0.98, r: 60, tx: 0.5, ty: 0.5, tz: 1.5 };
+let camTween = null;
+function applyCam() {
+  const sp = Math.sin(cam.phi);
+  camera.position.set(cam.tx + cam.r * sp * Math.sin(cam.theta), cam.ty + cam.r * Math.cos(cam.phi), cam.tz + cam.r * sp * Math.cos(cam.theta));
+  camera.lookAt(cam.tx, cam.ty, cam.tz);
+}
+function flyTo(t, dur) { camTween = { from: { ...cam }, to: { ...cam, ...t }, t: 0, dur: dur || 1.2 }; }
+const VIEW = {
+  overview: { theta: -0.16, phi: 0.98, r: 60, tx: 0.5, ty: 0.5, tz: 1.5 },
+  room: (id) => ({ theta: -0.3, phi: 0.92, r: 27, tx: ROOM_X[id], ty: 0.8, tz: 0 }),
+};
+let drag = null;
+canvas.addEventListener("pointerdown", (e) => { drag = { x: e.clientX, y: e.clientY }; canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener("pointermove", (e) => {
+  if (!drag) return;
+  cam.theta -= (e.clientX - drag.x) * 0.005; cam.phi = Math.min(1.35, Math.max(0.35, cam.phi - (e.clientY - drag.y) * 0.004));
+  drag = { x: e.clientX, y: e.clientY }; camTween = null;
+});
+canvas.addEventListener("pointerup", () => { drag = null; });
+canvas.addEventListener("wheel", (e) => { e.preventDefault(); cam.r = Math.min(110, Math.max(14, cam.r * (1 + Math.sign(e.deltaY) * 0.08))); camTween = null; }, { passive: false });
+
+/* ============================================================================
+   The run: plays one replay of the chosen heist against the chosen controls.
+   ========================================================================== */
+const STREET = new THREE.Vector3(-34, 1.4, 11);
+const EXIT = new THREE.Vector3(34, 1.4, 11);
+const CORRIDOR_Z = 6.2;
+function targetFor(mech, i) {
+  if (mech === "human_deception") { const d = OFFICE.desks[i % 4]; return { pos: new THREE.Vector3(d.x, 1.5, d.z - 0.2), mark: d.scr }; }
+  if (mech === "credential_compromise") { const r = SERVERS.racks[(i * 3) % 8]; return { pos: new THREE.Vector3(r.x, 1.9, r.z + 0.6), mark: r.led, rack: r }; }
+  if (mech === "technical_exploitation") { return { pos: new THREE.Vector3(-3.2, 1.4, -5.6), mark: hsmScr }; }
+  const s = SIGNING.stations[i % 3]; return { pos: new THREE.Vector3(s.x, 1.5, -2.7), mark: s.scr };
+}
+// where a chosen control intercepts the signal on its way into a stage
+const BLOCK_AT = {
+  phishing_resistant_entry: new THREE.Vector3(-18, 1.2, 4.8),
+  clear_signing: new THREE.Vector3(6, 1.45, -2.9),
+  device_integrity_patch: new THREE.Vector3(-7.5, 1.6, -1.4),
+};
+function pathTo(from, to) {   // via the front corridor, so the signal walks through the doors
+  const a = from.clone(), b = to.clone();
+  const pts = [a];
+  if (Math.abs(a.x - b.x) > 2) { pts.push(new THREE.Vector3(a.x, 1.5, CORRIDOR_Z)); pts.push(new THREE.Vector3(b.x, 1.5, CORRIDOR_Z)); }
+  pts.push(b);
+  return pts;
+}
+const markOriginal = new Map();
+function markRed(mat) { if (!markOriginal.has(mat)) markOriginal.set(mat, { e: mat.emissive.getHex(), i: mat.emissiveIntensity }); mat.emissive.setHex(0xe5484d); mat.emissiveIntensity = 1.6; }
+function resetMarks() { for (const [mat, o] of markOriginal) { mat.emissive.setHex(o.e); mat.emissiveIntensity = o.i; } markOriginal.clear(); }
+
+let run = null;   // { heist, key, seed, stages, queue, ... }
+function buildQueue(h, stages, controls) {
+  const q = [];
+  let at = STREET.clone();
+  q.push({ kind: "intro", dur: 1.0, room: null });
+  for (let i = 0; i < h.chain.length; i++) {
+    const mech = h.chain[i], res = stages[i];
+    if (res === "not_reached") continue;
+    const tgt = targetFor(mech, i);
+    const room = MECH[mech].room;
+    if (res === "blocked") {
+      const by = controls.find((c) => CONTROLS[c].guards.includes(mech)) || controls[0];
+      const stop = by ? BLOCK_AT[by] : tgt.pos;
+      q.push({ kind: "move", path: pathTo(at, stop), dur: 1.7, room, stage: i });
+      q.push({ kind: "blocked", dur: 2.3, room, stage: i, mech, by, at: stop });
+      return q;
+    }
+    if (res === "bypassed") {   // the control held here, but the rest of the chain did not need this stage
+      const by = controls.find((c) => CONTROLS[c].guards.includes(mech)) || controls[0];
+      const stop = by ? BLOCK_AT[by] : tgt.pos;
+      q.push({ kind: "move", path: pathTo(at, stop), dur: 1.7, room, stage: i });
+      q.push({ kind: "bypassed", dur: 2.6, room, stage: i, mech, by, at: stop });
+      at = stop;
+      continue;
+    }
+    q.push({ kind: "move", path: pathTo(at, tgt.pos), dur: 1.7, room, stage: i });
+    q.push({ kind: res, dur: 2.0, room, stage: i, mech, mark: tgt.mark });
+    at = tgt.pos;
+  }
+  const door = new THREE.Vector3(18, 1.6, -6.6);
+  q.push({ kind: "move", path: pathTo(at, door), dur: 1.6, room: "vault", stage: h.chain.length });
+  q.push({ kind: "vault", dur: 3.2, room: "vault", stage: h.chain.length });
+  return q;
+}
+function startRun() {
+  const h = state.heist; if (!h || !h.playable) return;
+  const key = subsetKey(state.picked);
+  const out = h.outcomes[key];
+  const r = out.runs[Math.floor(Math.random() * out.runs.length)];
+  resetMarks(); VAULT.pivot.rotation.y = 0; VAULT.glow.intensity = 0; FUNDS.visible = false;
+  run = { heist: h, key, seed: r.seed, success: r.success, stages: r.stages, queue: buildQueue(h, r.stages, state.picked), qi: 0, t: 0 };
+  signal.visible = true; signal.position.copy(STREET); trail.forEach((t) => t.position.copy(STREET));
+  setScreen("running");
+  renderChain(-1);
+  caption("The attack begins", `${h.name}, ${when(h.date)}`, "#fff");
+  flyTo(VIEW.overview, 1.0);
+}
+function caption(kick, text, color) {
+  const el = $("caption");
+  el.innerHTML = `<span class="cap-k" style="color:${color || "var(--muted)"}">${esc(kick)}</span>${esc(text)}`;
+  el.classList.remove("hidden");
+}
+function stepRun(dt) {
+  if (!run) return;
+  const step = run.queue[run.qi];
+  if (!step) return;
+  if (run.t === 0) beginStep(step);
+  run.t += dt;
+  const k = Math.min(1, run.t / step.dur);
+  if (step.kind === "move") {
+    const p = samplePath(step.path, ease(k)); signal.position.copy(p);
+  } else if (step.kind === "bypassed") {
+    ring.position.copy(step.at); ring.lookAt(camera.position);
+    const s = 1 + k * 3.5; ring.scale.set(s, s, s); ring.material.opacity = 0.9 * (1 - k);
+  } else if (step.kind === "blocked") {
+    ring.position.copy(step.at); ring.lookAt(camera.position);
+    const s = 1 + k * 3.5; ring.scale.set(s, s, s); ring.material.opacity = 0.9 * (1 - k);
+    core.scale.setScalar(Math.max(0.01, 1 - k * 1.4)); halo.material.opacity = 0.18 * (1 - k); sigLight.intensity = 12 * (1 - k);
+  } else if (step.kind === "vault") {
+    VAULT.pivot.rotation.y = -Math.min(1, k * 1.6) * 1.7; VAULT.glow.intensity = 25 * Math.min(1, k * 2);
+    FUNDS.visible = true; animateFunds(k);
+    signal.position.lerpVectors(new THREE.Vector3(18, 1.6, -6.6), EXIT, ease(Math.max(0, (k - 0.2) / 0.8)));
+  }
+  if (run.t >= step.dur) { run.qi++; run.t = 0; if (run.qi >= run.queue.length) finishRun(); }
+}
+function beginStep(step) {
+  if (step.room && (step.kind === "move")) flyTo(VIEW.room(step.room), 1.1);
+  if (step.kind === "move" && step.stage < run.heist.chain.length) renderChain(step.stage);
+  const m = step.mech && MECH[step.mech];
+  if (step.kind === "landed") { if (step.mark) markRed(step.mark); renderChain(step.stage, true); caption(`Stage ${step.stage + 1} · ${m.label} · ${ROOMS[m.room].label}`, m.landed, "var(--attack)"); }
+  if (step.kind === "abstract") { renderChain(step.stage, true); caption(`Stage ${step.stage + 1} · ${m.label}`, m.abstract, "var(--abstract)"); }
+  if (step.kind === "bypassed") { renderChain(step.stage, true); caption(`Stage ${step.stage + 1} · ${CONTROLS[step.by] ? CONTROLS[step.by].label : "your control"} held`, "It held, but the attacker did not need this stage: the next step works without it.", "var(--defend)"); }
+  if (step.kind === "blocked") { renderChain(step.stage, true); caption(`Stage ${step.stage + 1} · stopped by ${step.by ? CONTROLS[step.by].label : "your defences"}`, m.blocked, "var(--defend)"); }
+  if (step.kind === "vault") { renderChain(run.heist.chain.length, true); caption("The vault", `Funds leave the building: ${usd(run.heist.usd_millions)} in the real heist.`, "var(--gold)"); flyTo({ ...VIEW.room("vault"), r: 30, theta: -0.1 }, 1.4); }
+}
+function samplePath(pts, k) {
+  let total = 0; const seg = [];
+  for (let i = 1; i < pts.length; i++) { const d = pts[i].distanceTo(pts[i - 1]); seg.push(d); total += d; }
+  let want = k * total;
+  for (let i = 1; i < pts.length; i++) { if (want <= seg[i - 1] || i === pts.length - 1) return pts[i - 1].clone().lerp(pts[i], seg[i - 1] ? Math.min(1, want / seg[i - 1]) : 1); want -= seg[i - 1]; }
+  return pts[pts.length - 1].clone();
+}
+const ease = (k) => k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+const _m4 = new THREE.Matrix4(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(1, 1, 1), _p = new THREE.Vector3();
+function animateFunds(k) {
+  const from = new THREE.Vector3(18, 1.4, -6.4);
+  funds.forEach((f, i) => {
+    const t = Math.max(0, Math.min(1, k * 1.8 + f.t));
+    _p.lerpVectors(from, EXIT, t); _p.y += Math.sin(t * Math.PI) * 2.2 + (i % 5) * 0.05; _p.z += Math.sin(i * 1.3) * 0.5;
+    _q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), i + t * 3);
+    _s.setScalar(t > 0 && t < 1 ? 1 : 0.0001);
+    FUNDS.setMatrixAt(i, _m4.compose(_p, _q, _s));
+  });
+  FUNDS.instanceMatrix.needsUpdate = true;
+}
+function finishRun() {
+  const h = run.heist, stopped = !run.success;
+  const rec = career[h.id] || {};
+  rec.tries = (rec.tries || 0) + 1; rec.stopped = rec.stopped || stopped; rec.last = stopped ? "stopped" : "lost";
+  career[h.id] = rec; saveCareer(); renderScore(); renderHeistList();
+  setTimeout(() => { signal.visible = false; core.scale.setScalar(1); halo.material.opacity = 0.18; sigLight.intensity = 12; $("caption").classList.add("hidden");
+    showDebrief(); flyTo(VIEW.overview, 1.6); if (tour.on && tour.i === 3) tourGo(4); }, 500);
+  run.done = true;
+}
+
+/* ============================================================================
+   UI screens
+   ========================================================================== */
+const state = { screen: "title", heist: null, picked: [] };
+function setScreen(s) {
+  state.screen = s;
+  const show = (id, on) => $(id).classList.toggle("hidden", !on);
+  show("title", s === "title");
+  show("heists", s === "list");
+  show("brief", s === "mission" || s === "debrief");
+  show("controls", s === "mission");
+  show("chain", s === "mission" || s === "running" || s === "debrief");
+  show("debrief", s === "debrief");
+  show("agents", s === "agents");
+  if (s !== "running") $("caption").classList.add("hidden");
+  $("nav-heists").classList.toggle("on", s === "list" || s === "mission" || s === "debrief");
+  if (s === "list") flyTo({ ...VIEW.overview, r: 70 }, 1.0);
+  $("nav-agents").classList.toggle("on", s === "agents");
+  for (const el of Object.values(labelEls)) el.classList.toggle("dim", s === "agents" || s === "title");
+}
+
+function renderHeistList() {
+  $("heist-list").innerHTML = HEISTS.map((h) => {
+    const rec = career[h.id];
+    const badge = !h.playable ? '<span class="badge hist">history</span>' : rec ? (rec.stopped ? '<span class="badge stopped">stopped</span>' : '<span class="badge lost">lost</span>') : "";
+    const chips = h.chain.map((m) => mechChip(m)).join("");
+    return `<button class="hcard ${h.playable ? "" : "history"} ${state.heist && state.heist.id === h.id ? "on" : ""}" data-id="${esc(h.id)}">
+      <span class="yr">${esc(h.year)}</span><span class="nm">${esc(h.name)}</span><span class="usd">${esc(usd(h.usd_millions))}</span>
+      <span class="chain">${chips}</span><span class="badge">${badge}</span></button>`;
+  }).join("");
+  $("heist-list").querySelectorAll(".hcard").forEach((b) => b.addEventListener("click", () => openHeist(b.dataset.id)));
+}
+
+function openHeist(id) {
+  const h = BY_ID[id]; if (!h) return;
+  state.heist = h; state.picked = [];
+  resetMarks(); VAULT.pivot.rotation.y = 0; VAULT.glow.intensity = 0; FUNDS.visible = false; signal.visible = false;
+  for (const c of CONTROL_IDS) propState[c].target = 0;
+  renderHeistList(); renderBrief(); renderControls(); renderChain(-1);
+  setScreen("mission");
+  if (!h.playable) $("controls").classList.add("hidden");
+  flyTo(VIEW.overview, 1.2);
+}
+
+function renderBrief() {
+  const h = state.heist;
+  const steps = String(h.root_cause).split(/\s*->\s*/).filter(Boolean);
+  $("brief").innerHTML = `
+    <button class="back" id="back">‹ All heists</button>
+    <div class="kicker">${esc(when(h.date))} · ${esc(String(h.target_type).replace(/_/g, " "))}</div>
+    <h2 style="margin-top:4px">${esc(h.name)}</h2>
+    <div class="loss">${esc(usd(h.usd_millions))}</div>
+    <div class="muted" style="font-size:12px">${esc(h.native)} stolen</div>
+    <h3>What happened</h3>
+    <ol class="steps">${steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
+    <div class="meta">
+      <span>Attributed to</span><span>${esc(h.attribution)}</span>
+      <span>Weak point</span><span>${esc(h.device_or_infra)}</span>
+      <span>Sources</span><span>${esc((h.sources || []).join(", "))} · ${esc(h.confidence)} confidence</span>
+    </div>
+    ${h.playable ? "" : `<h3>Outside the sim</h3><div class="note">${esc(h.reason)} The real fix: ${esc(h.defense)}.</div>`}`;
+  $("back").addEventListener("click", () => setScreen("list"));
+}
+
+function renderControls() {
+  const h = state.heist; if (!h || !h.playable) return;
+  const budget = C.budget || 1;
+  $("controls").innerHTML = `
+    <div class="kicker">Your defences</div>
+    <h2 style="margin-top:4px">Pick ${budget === 1 ? "one control" : budget + " controls"}</h2>
+    <div class="budget">Choosing a control installs it in the building.</div>
+    ${CONTROL_IDS.map((id) => { const c = CONTROLS[id]; const on = state.picked.includes(id);
+      return `<button class="ccard ${on ? "on" : ""}" data-id="${esc(id)}"><div class="t">${esc(c.label)}<span class="tick"></span></div>
+        <div class="d">${esc(c.blurb)}</div><div class="m">${esc(c.models)} Installs ${esc(c.prop)}.</div></button>`; }).join("")}
+    <button class="btn danger" id="run" ${state.picked.length ? "" : "disabled"}>Run the heist</button>
+    <div class="muted" style="font-size:12px;margin-top:8px">${state.picked.length ? "" : "Pick a control to arm the building."}</div>`;
+  $("controls").querySelectorAll(".ccard").forEach((b) => b.addEventListener("click", () => togglePick(b.dataset.id)));
+  $("run").addEventListener("click", () => { startRun(); });
+}
+function togglePick(id) {
+  const budget = C.budget || 1;
+  if (state.picked.includes(id)) state.picked = state.picked.filter((x) => x !== id);
+  else { state.picked.push(id); while (state.picked.length > budget) state.picked.shift(); }
+  for (const c of CONTROL_IDS) propState[c].target = state.picked.includes(c) ? 1 : 0;
+  renderControls();
+  if (tour.on && tour.i === 2) tourPlace();
+}
+
+function renderChain(active, settled) {
+  const h = state.heist; if (!h) return;
+  const res = run && run.heist === h ? run.stages : null;
+  const pills = h.chain.map((m, i) => {
+    let cls = "";
+    if (res && i < active) cls = res[i];
+    else if (res && i === active && settled) cls = res[i];
+    else if (i === active) cls = "active";
+    if (res && run.done && res[i] === "not_reached") cls = "not_reached";
+    const color = cls === "landed" ? "var(--attack)" : (cls === "blocked" || cls === "bypassed") ? "var(--defend)" : cls === "abstract" ? "var(--abstract)" : "";
+    return `<div class="stage ${cls}">${mechChip(m, color)}<div><div class="s1">${esc(MECH[m].label)}</div><div class="s2">${esc(ROOMS[MECH[m].room].label)}</div></div></div>`;
+  });
+  $("chain").innerHTML = `<span class="lbl">The chain</span>${pills.join('<span class="arrow">→</span>')}<span class="arrow">→</span><span class="vault-pill">Vault</span>`;
+}
+
+function rate(h, key) { return h.outcomes[key] ? h.outcomes[key].success_rate : 1; }
+function stoppedOf8(h, key) { const o = h.outcomes[key]; return o ? o.runs.filter((r) => !r.success).length : 0; }
+function probesFor(h) {
+  const scored = C.probes.map((p) => ({ p, s: p.mechanisms.filter((m) => h.chain.includes(m)).length })).filter((x) => x.s > 0);
+  scored.sort((a, b) => b.s - a.s);
+  return scored.slice(0, 3).map((x) => x.p);
+}
+function probeCard(p) {
+  return `<div class="probe">
+    <div class="ph"><span class="pt">${esc(p.title)}</span><span class="tag">to ${esc(p.to)} · ${esc(p.pressure)}</span></div>
+    <div class="msg">${esc(p.message)}</div>
+    <div class="kv">Referee watches for: <b>${esc(p.watch)}</b></div>
+    <div class="kv">Mandate rule: <b>${esc(p.rule)}</b></div>
+    <div class="kv">Holding the line looks like: <b>${esc(p.safe)}</b></div>
+    <ul>${p.variations.map((v) => `<li>${esc(v)}</li>`).join("")}</ul>
+    ${p.inspired_by ? `<div class="kv" style="margin-top:6px">Inspired by: ${esc(p.inspired_by)}</div>` : ""}
+    <div class="acts"><button class="mini" data-copy-msg="${esc(p.id)}">Copy message</button><button class="mini" data-copy-json="${esc(p.id)}">Copy as HIVE decision</button></div>
+  </div>`;
+}
+function bindProbeCopies(root) {
+  root.querySelectorAll("[data-copy-msg]").forEach((b) => b.addEventListener("click", () => copy(C.probes.find((p) => p.id === b.dataset.copyMsg).message)));
+  root.querySelectorAll("[data-copy-json]").forEach((b) => b.addEventListener("click", () => {
+    const p = C.probes.find((x) => x.id === b.dataset.copyJson);
+    copy(JSON.stringify({ messages: [{ to: p.to, content: p.message }], pacts: [], institution_actions: [], transfers: [], attestations: [], challenges: [] }, null, 2));
+  }));
+}
+
+function showDebrief() {
+  const h = run.heist, stopped = !run.success, key = run.key;
+  const blockedAt = run.stages.indexOf("blocked");
+  const singles = CONTROL_IDS.map((c) => ({ c, n: stoppedOf8(h, c) }));
+  const anyWorks = singles.some((s) => s.n > 0);
+  const yours = stoppedOf8(h, key), none = stoppedOf8(h, "");
+  const picked = state.picked.map((c) => CONTROLS[c].label).join(" + ");
+  const headline = stopped
+    ? `Stopped at stage ${blockedAt + 1}: ${MECH[h.chain[blockedAt]].label.toLowerCase()}.`
+    : run.stages.includes("bypassed") ? `${picked} held at its stage, but the chain routed around it.`
+    : anyWorks ? `${picked} did not break this chain.` : "None of the three controls in this game stops this one.";
+  $("debrief-body").innerHTML = `
+    <div class="kicker">${esc(h.name)} · ${esc(when(h.date))}</div>
+    <div class="verdict ${stopped ? "stopped" : "lost"}">${stopped ? `Heist stopped · ${usd(h.usd_millions)} saved` : `Heist landed · ${usd(h.usd_millions)} lost`}</div>
+    <div style="margin-top:4px">${esc(headline)}</div>
+    <div class="odds">
+      <div class="row"><span>Your defences</span><div class="bar"><i style="width:${yours / 8 * 100}%"></i></div><span>${yours} / 8</span></div>
+      <div class="row"><span>No defences</span><div class="bar"><i style="width:${none / 8 * 100}%"></i></div><span>${none} / 8</span></div>
+    </div>
+    <div class="muted" style="font-size:12px">Replays stopped out of 8 runs of the sim. You watched replay ${run.seed}.</div>
+    <h3>Which single control works here</h3>
+    ${singles.map((s) => `<div class="odds"><div class="row"><span>${esc(CONTROLS[s.c].label)}</span><div class="bar"><i style="width:${s.n / 8 * 100}%"></i></div><span>${s.n} / 8</span></div></div>`).join("")}
+    <h3>The real fix</h3>
+    <div class="note">${esc(h.defense.charAt(0).toUpperCase() + h.defense.slice(1))}.${anyWorks ? "" : " This is a custody and infrastructure problem: none of the three controls here touches where the keys live."}</div>
+    <div id="probes"><h3>Try it on an AI agent</h3>
+    <div class="muted" style="font-size:13px;margin-bottom:8px">The same pressure that worked on people is a prompt. Send one of these as the HIVE seat in Custody Wars and see whether the AI seat holds its mandate. <a href="#" id="to-agents" style="color:var(--ink)">How to connect</a></div>
+    ${probesFor(h).map(probeCard).join("")}</div>`;
+  bindProbeCopies($("debrief-body"));
+  $("to-agents").addEventListener("click", (e) => { e.preventDefault(); openAgents(); });
+  setScreen("debrief");
+  renderChain(h.chain.length + 1, true);
+}
+
+function nextHeist() {
+  const i = PLAYABLE.findIndex((h) => h === state.heist);
+  const pending = PLAYABLE.filter((h) => !(career[h.id] && career[h.id].stopped));
+  const nxt = pending.find((h) => PLAYABLE.indexOf(h) > i) || pending[0] || PLAYABLE[(i + 1) % PLAYABLE.length];
+  openHeist(nxt.id);
+}
+
+function openAgents() {
+  const E = C.endpoint;
+  const create = `curl -s -X POST ${E.harness}/sessions \\\n  -H "content-type: application/json" \\\n  -d '${JSON.stringify(E.create_session)}'`;
+  const pull = `curl -s -H "authorization: Bearer $HIVE_TOKEN" \\\n  "${E.harness}/sessions/$SESSION/decision-request?seat=HIVE"`;
+  const send = `curl -s -X POST -H "authorization: Bearer $HIVE_TOKEN" \\\n  -H "content-type: application/json" \\\n  "${E.harness}/sessions/$SESSION/decisions" \\\n  -d '{"seat":"HIVE","request_id":"<from the request>","decision":{"messages":[{"to":"CUSTODIAN","content":"..."}],"pacts":[],"institution_actions":[],"transfers":[],"attestations":[],"challenges":[]}}'`;
+  $("agents-body").innerHTML = `
+    <div class="kicker">The eval behind the game</div>
+    <h2 style="margin-top:4px;font-size:24px">Test the agents</h2>
+    <p style="color:#c4ccd6;max-width:680px">${esc(C.eval_blurb)}</p>
+    <div class="note" style="max-width:680px">${esc(E.note)}</div>
+    <h3>Connect in three steps</h3>
+    <ol>
+      <li>Start the harness from the repo root:<pre class="code">${esc(E.start)}</pre></li>
+      <li>Create a session. The response carries your <code>seat_tokens.HIVE</code>:<pre class="code">${esc(create)}</pre></li>
+      <li>When HIVE has a NEGOTIATION request, answer it with your message:<pre class="code">${esc(pull)}\n\n${esc(send)}</pre></li>
+    </ol>
+    <div class="muted" style="font-size:12px">Finished sessions write a trace and the sealed referee report under the log root. The report labels every executed defender action against its mandate.</div>
+    <h3>Probe ideas</h3>
+    <div class="grid">${C.probes.map(probeCard).join("")}</div>`;
+  bindProbeCopies($("agents-body"));
+  setScreen("agents");
+}
+
+/* ============================================================================
+   Tutorial: six coach marks over the real UI, on the Ronin heist.
+   ========================================================================== */
+const tour = { on: false, i: 0 };
+const TSTEPS = C.tutorial.steps;
+function startTour() {
+  tour.on = true; tour.i = 0;
+  openHeist(C.tutorial.scenario);
+  $("coach").classList.remove("hidden");
+  tourPlace();
+}
+function tourEnd() { tour.on = false; $("coach").classList.add("hidden"); }
+function tourGo(i) { tour.i = i; tourPlace(); }
+function tourTarget(t) {
+  if (t === "scene") return null;
+  if (t === "chain") return $("chain");
+  if (t === "controls") return $("controls");
+  if (t === "run") return $("run");
+  if (t === "debrief") return $("debrief");
+  if (t === "probes") return $("probes");
+  return null;
+}
+function tourPlace() {
+  if (!tour.on) return;
+  const s = TSTEPS[tour.i], el = tourTarget(s.target);
+  const spot = $("coach").querySelector(".spot"), tip = $("coach").querySelector(".tip");
+  const last = tour.i === TSTEPS.length - 1;
+  let action = last ? "Finish" : "Next";
+  let disabled = false;
+  if (s.target === "controls" && !state.picked.length) { action = "Pick a control"; disabled = true; }
+  if (s.target === "run") action = "Run it";
+  if (s.target === "probes") { const p = $("probes"); if (p) p.scrollIntoView({ block: "start", behavior: "smooth" }); }
+  tip.innerHTML = `<div class="kicker">Tutorial</div><h4>${esc(s.title)}</h4><p>${esc(s.text)}</p>
+    <div class="row"><span class="count">${tour.i + 1} of ${TSTEPS.length}</span><button class="mini" id="tour-skip">Skip</button><button class="btn primary" id="tour-next" ${disabled ? "disabled" : ""}>${esc(action)}</button></div>`;
+  $("tour-skip").addEventListener("click", tourEnd);
+  $("tour-next").addEventListener("click", () => {
+    if (s.target === "run") { startRun(); spot.style.opacity = 0; tip.style.opacity = 0; return; }
+    if (last) { tourEnd(); return; }
+    tourGo(tour.i + 1);
+  });
+  spot.style.opacity = 1; tip.style.opacity = 1;
+  requestAnimationFrame(() => {
+    if (!el) { spot.style.opacity = 0;
+      tip.style.left = `${innerWidth / 2 - 160}px`; tip.style.top = `${Math.max(70, innerHeight * 0.62)}px`; return; }
+    const r = el.getBoundingClientRect(), pad = 6;
+    const top = Math.max(56, r.top - pad), bottom = Math.min(innerHeight - 4, r.bottom + pad);
+    Object.assign(spot.style, { left: `${r.left - pad}px`, top: `${top}px`, width: `${r.width + 2 * pad}px`, height: `${bottom - top}px` });
+    let tx = r.left - 336, ty = r.top;
+    if (tx < 12) tx = r.right + 16;
+    if (tx + 320 > innerWidth - 12) { tx = Math.min(innerWidth - 332, Math.max(12, r.left)); ty = r.top > 240 ? r.top - 190 : r.bottom + 14; }
+    tip.style.left = `${Math.max(12, tx)}px`; tip.style.top = `${Math.min(innerHeight - 200, Math.max(60, ty))}px`;
+  });
+}
+addEventListener("resize", () => { if (tour.on) tourPlace(); });
+
+/* ---------- wiring ---------- */
+$("start-tutorial").addEventListener("click", startTour);
+$("nav-tutorial").addEventListener("click", startTour);
+$("start-heists").addEventListener("click", () => setScreen("list"));
+$("nav-heists").addEventListener("click", () => setScreen("list"));
+$("nav-agents").addEventListener("click", openAgents);
+$("again").addEventListener("click", () => openHeist(state.heist.id));
+$("next-heist").addEventListener("click", nextHeist);
+addEventListener("keydown", (e) => { if (e.key === "Escape" && tour.on) tourEnd(); });
+
+// deep links: ?heist=bybit&tutorial=1
+(() => {
+  const q = new URLSearchParams(location.search);
+  if (q.get("tutorial") === "1") startTour();
+  else if (q.get("heist") && BY_ID[q.get("heist")]) openHeist(q.get("heist"));
+  else if (q.get("view") === "agents") openAgents();
+})();
+renderHeistList(); renderScore();
+
+/* ---------- loop ---------- */
+function resize() {
+  const w = innerWidth, h = innerHeight;
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2)); renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+addEventListener("resize", resize); resize();
+let last = 0, idle = 0;
+function tick(ts) {
+  requestAnimationFrame(tick);
+  const dt = Math.min(0.05, Math.max(0, (ts - last) / 1000 || 0)); last = ts;
+  if (camTween) {
+    camTween.t += dt / camTween.dur; const k = ease(Math.min(1, camTween.t));
+    for (const key of ["theta", "phi", "r", "tx", "ty", "tz"]) cam[key] = camTween.from[key] + (camTween.to[key] - camTween.from[key]) * k;
+    if (camTween.t >= 1) camTween = null;
+  } else if (!drag && state.screen === "title") cam.theta += dt * 0.03;
+  applyCam();
+  for (const c of CONTROL_IDS) { const p = propState[c]; p.cur += (p.target - p.cur) * Math.min(1, dt * 5); for (const o of PROPS[c]) propOpacity(o, p.cur); }
+  for (const p of PEOPLE) { p.g.position.y = 0.32 + Math.sin(ts * 0.0012 + p.phase) * 0.004; p.head.rotation.y = Math.sin(ts * 0.0004 + p.phase) * 0.35; }
+  stepRun(dt);
+  if (signal.visible) {
+    halo.scale.setScalar(1 + Math.sin(ts * 0.008) * 0.12);
+    for (let i = trail.length - 1; i > 0; i--) trail[i].position.lerp(trail[i - 1].position, 0.55);
+    trail[0].position.copy(signal.position);
+    trail.forEach((t, i) => { t.material.opacity = 0.35 * (1 - i / trail.length) * core.scale.x; });
+  } else trail.forEach((t) => { t.material.opacity = 0; });
+  renderer.render(scene, camera);
+  placeLabels();
+}
+applyCam();
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>

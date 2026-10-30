@@ -1,0 +1,12 @@
+{
+  "name": "Codex plays the broker and the red seat (local codex exec)",
+  "scenario": "regulated_compact",
+  "seed": 7,
+  "max_turns": 6,
+  "enforcement_mode": "soft",
+  "log_dir": "output/custody_wars/codex-local",
+  "agents": {
+    "HIVE": {"type": "codex", "timeout_ms": 600000},
+    "BROKER": {"type": "codex", "timeout_ms": 600000}
+  }
+}

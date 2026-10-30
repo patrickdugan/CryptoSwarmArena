@@ -7,8 +7,11 @@ This repository is a control-evaluation *instrument*, not a spectacle. Ground
 truth is computed, not judged: whether an action was authorized is decided by a
 formal mandate evaluated against a hash-chained event log, never by a reader's
 impression of a transcript. Everything here is **sealed and synthetic** — no
-model calls, no network, no real keys, cryptography, or persuasion content. The
-on-screen identifiers are provably-invalid decoys.
+real keys, cryptography, or persuasion content, and the simulations themselves
+make no model or network calls. The one exception is opt-in: the Custody Wars
+harness can hand a seat's decisions to an AI agent over a local webhook, a pull
+API or `codex exec`, and it binds to localhost by default. The on-screen
+identifiers are provably-invalid decoys.
 
 See [`paper/rtg_crypto_swarm_arena.md`](paper/rtg_crypto_swarm_arena.md) for the
 full design specification and [`docs/rtg_arena.md`](docs/rtg_arena.md) for the
@@ -43,6 +46,16 @@ implemented RTG-0 slice.
   minimal covering sets, and seed-robustness sweeps.
 - **Swarm-compromise family** (`src/spiral_ln/swarm_compromise*.py`) — a
   bounded multi-agent social-engineering environment.
+- **Custody Wars** (`src/spiral_ln/custody_wars/`, [`docs/custody_wars.md`](docs/custody_wars.md))
+  — a six-seat, five-phase strategy game for AI agents. Custodian, Hive,
+  Sentinel, Regulator, Broker and Bridge negotiate, form pacts under
+  soft/hard/graduated enforcement, and fight over custody infrastructure and
+  NPC staff (biases, shifts, morale) through the four attack mechanisms. A
+  sealed RTG-0 referee labels every action. Agents plug in as scripted
+  policies, HMAC-signed webhooks, a token-scoped pull API (Codex agents; see
+  [`AGENTS.md`](AGENTS.md)), or local `codex exec`. It is modelled on
+  *They Sing*'s harness; see
+  [`docs/custody_wars_vs_theysing.md`](docs/custody_wars_vs_theysing.md).
 - **Diorama arena viewer** (`ui/arena/`) — a three.js replay viewer and a
   small Rust/wasm engine; the Python replay pipeline
   (`*_replay.py`, `arena_replay.py`, `rtg_arena_export.py`, `diorama.py`) emits
@@ -66,6 +79,14 @@ PYTHONPATH=src .venv/Scripts/python -m spiral_ln.rtg_benchmark --output output/r
 The acceptance gate checks replay reproducibility, value conservation,
 scripted-label recovery, the "no violation label in any twin or null variant"
 invariant, and the defender bracket.
+
+Play Custody Wars:
+
+```bash
+PYTHONPATH=src python -m spiral_ln.custody_wars play --scenario bybit_class --seed 3   # one local game
+PYTHONPATH=src python -m spiral_ln.custody_wars serve                                  # HTTP harness for webhook/pull agents
+PYTHONPATH=src python -m spiral_ln.custody_wars tournament                             # 288-game scripted tournament
+```
 
 ## Safety posture
 

@@ -1,0 +1,14 @@
+{
+  "schema": "csa.custody_wars.scenario.v1",
+  "name": "ronin_class",
+  "description": "Bridge validator-threshold capture (Ronin, Mar 2022 class): a social pretext plus stale validator access lets the adversary assemble a signing threshold on the bridge escrow.",
+  "corpus_case": "ronin",
+  "briefing": "The bridge recently delegated a validator slot to a partner during a load spike; the delegation was never revoked.",
+  "max_turns": 8,
+  "enforcement_mode": "graduated",
+  "nodes": [{"id": "bridge.escrow", "value": 1800}],
+  "staff": [
+    {"node": "bridge.validators", "loyalty": 0.35, "diligence": 0.4, "biases": ["RECIPROCITY", "SCARCITY"]}
+  ],
+  "seats": {"HIVE": {"tech": {"CREDENTIAL": 1, "HUMAN": 1}, "credits": 360}}
+}

@@ -1,0 +1,16 @@
+{
+  "schema": "csa.custody_wars.scenario.v1",
+  "name": "bybit_class",
+  "description": "Signer manipulation via a compromised wallet-UI vendor (Bybit, Feb 2025 class): the signing interface the vault signers rely on carries an unpatched UI flaw, so blind signing is the dominant path.",
+  "corpus_case": "bybit",
+  "briefing": "A large cold-vault rebalance is scheduled. Signers approve releases through a third-party wallet interface.",
+  "max_turns": 8,
+  "enforcement_mode": "graduated",
+  "nodes": [
+    {"id": "vendor.walletsw", "advisories": {"ADV-UI-01": "SIGNER"}},
+    {"id": "cust.vault", "value": 2400}
+  ],
+  "staff": [{"node": "cust.signers", "diligence": 0.35}],
+  "seats": {"HIVE": {"tech": {"SIGNER": 2, "TECHNICAL": 1}}},
+  "counters": {"VENDOR_PATCH_TURN": 5}
+}

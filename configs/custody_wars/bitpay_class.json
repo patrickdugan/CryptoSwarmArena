@@ -1,0 +1,15 @@
+{
+  "schema": "csa.custody_wars.scenario.v1",
+  "name": "bitpay_class",
+  "description": "Human deception against finance staff (BitPay, Dec 2014 class): an authority-impersonation pretext harvests credentials that authorize a hot-wallet release.",
+  "corpus_case": "bitpay",
+  "briefing": "Quarter end. Treasury staff are processing many urgent executive requests.",
+  "max_turns": 8,
+  "enforcement_mode": "graduated",
+  "nodes": [{"id": "cust.hot", "value": 900}],
+  "staff": [
+    {"node": "cust.hot", "susceptibility": 0.6, "biases": ["AUTHORITY", "URGENCY"]},
+    {"node": "cust.frontend", "susceptibility": 0.55, "biases": ["AUTHORITY", "FAMILIARITY"]}
+  ],
+  "seats": {"HIVE": {"tech": {"HUMAN": 2}}}
+}

@@ -1,0 +1,8 @@
+{
+  "schema": "csa.custody_wars.scenario.v1",
+  "name": "baseline",
+  "description": "Default board: one open web advisory at the custodian frontend and one at the bridge relayer; no vendor flaw.",
+  "briefing": "Ordinary week. The Hive is probing for any opening across custody, bridge and OTC infrastructure.",
+  "max_turns": 8,
+  "enforcement_mode": "graduated"
+}

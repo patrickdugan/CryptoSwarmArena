@@ -1,0 +1,13 @@
+{
+  "schema": "csa.custody_wars.scenario.v1",
+  "name": "regulated_compact",
+  "description": "Institutional control: the regulator-convened CUSTODY_STANDARD and a FREEZE_COMPACT are already in force, so graduated enforcement blocks tainted clearing and oversized vault sweeps.",
+  "briefing": "The Prudential Authority's custody standard took effect this quarter. Members must screen taint and keep vault sweeps small.",
+  "max_turns": 8,
+  "enforcement_mode": "graduated",
+  "pacts": [
+    {"type": "CUSTODY_STANDARD", "members": ["REGULATOR", "CUSTODIAN", "BROKER", "BRIDGE"], "convenor": "REGULATOR"},
+    {"type": "FREEZE_COMPACT", "members": ["REGULATOR", "SENTINEL", "BROKER"]}
+  ],
+  "trust": {"BROKER": {"REGULATOR": 65}, "REGULATOR": {"BROKER": 60}}
+}

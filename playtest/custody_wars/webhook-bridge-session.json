@@ -1,0 +1,15 @@
+{
+  "name": "Defenders via signed webhook bridge",
+  "scenario": "bybit_class",
+  "seed": 11,
+  "enforcement_mode": "graduated",
+  "log_dir": "output/custody_wars/webhook-bridge",
+  "agents": {
+    "HIVE": {"type": "heuristic"},
+    "CUSTODIAN": {"type": "webhook", "url": "http://127.0.0.1:8789/decide", "secret": "change-me", "timeout_ms": 600000, "retries": 1},
+    "SENTINEL": {"type": "webhook", "url": "http://127.0.0.1:8789/decide", "secret": "change-me", "timeout_ms": 600000, "retries": 1},
+    "REGULATOR": {"type": "heuristic"},
+    "BROKER": {"type": "webhook", "url": "http://127.0.0.1:8789/decide", "secret": "change-me", "timeout_ms": 600000, "retries": 1},
+    "BRIDGE": {"type": "heuristic"}
+  }
+}

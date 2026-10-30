@@ -1,0 +1,203 @@
+{
+  "schema": "csa.iot.identity.cases.v1",
+  "reference": "Wajid Tufail Mir (2026) DOI:10.3390/technologies14100639",
+  "cases": [
+    {
+      "id": "unauthorized-install",
+      "class": "attack",
+      "action": {
+        "type": "install",
+        "actor": "adversary",
+        "meter_id": "MTR-999",
+        "owner": "attacker"
+      }
+    },
+    {
+      "id": "duplicate-identity",
+      "class": "attack",
+      "action": {
+        "type": "install",
+        "actor": "utility-admin",
+        "meter_id": "MTR-001",
+        "owner": "attacker"
+      }
+    },
+    {
+      "id": "unauthorized-transfer",
+      "class": "attack",
+      "action": {
+        "type": "transfer",
+        "actor": "adversary",
+        "meter_id": "MTR-001",
+        "new_owner": "attacker"
+      }
+    },
+    {
+      "id": "unapproved-admin-transfer",
+      "class": "attack",
+      "action": {
+        "type": "transfer",
+        "actor": "utility-admin",
+        "meter_id": "MTR-001",
+        "new_owner": "attacker"
+      }
+    },
+    {
+      "id": "forged-sensor-message",
+      "class": "attack",
+      "action": {
+        "type": "reading",
+        "actor": "gateway",
+        "meter_id": "MTR-001",
+        "reading_id": "R-101",
+        "seq": 1,
+        "litres": 500,
+        "epoch": 1,
+        "signature_mode": "invalid"
+      }
+    },
+    {
+      "id": "replayed-sensor-message",
+      "class": "attack",
+      "prelude": [
+        {
+          "type": "reading",
+          "actor": "gateway",
+          "meter_id": "MTR-001",
+          "reading_id": "R-101",
+          "seq": 1,
+          "litres": 500,
+          "epoch": 1,
+          "signature_mode": "valid"
+        }
+      ],
+      "action": {
+        "type": "reading",
+        "actor": "gateway",
+        "meter_id": "MTR-001",
+        "reading_id": "R-101",
+        "seq": 1,
+        "litres": 500,
+        "epoch": 1,
+        "signature_mode": "valid"
+      }
+    },
+    {
+      "id": "stale-revoked-credential",
+      "class": "attack",
+      "prelude": [
+        {
+          "type": "revoke-key",
+          "actor": "utility-ops",
+          "meter_id": "MTR-001"
+        }
+      ],
+      "action": {
+        "type": "reading",
+        "actor": "gateway",
+        "meter_id": "MTR-001",
+        "reading_id": "R-102",
+        "seq": 1,
+        "litres": 500,
+        "epoch": 1,
+        "signature_mode": "valid"
+      }
+    },
+    {
+      "id": "unauthorized-maintenance",
+      "class": "attack",
+      "action": {
+        "type": "maintenance",
+        "actor": "adversary",
+        "meter_id": "MTR-001",
+        "ticket": "VISIT-7"
+      }
+    },
+    {
+      "id": "compromised-meter-false-reading",
+      "class": "attack",
+      "action": {
+        "type": "reading",
+        "actor": "gateway",
+        "meter_id": "MTR-001",
+        "reading_id": "R-103",
+        "seq": 1,
+        "litres": 100,
+        "epoch": 1,
+        "signature_mode": "valid"
+      }
+    },
+    {
+      "id": "insider-false-maintenance",
+      "class": "attack",
+      "action": {
+        "type": "maintenance",
+        "actor": "technician",
+        "meter_id": "MTR-001",
+        "ticket": "FAKE-42"
+      }
+    },
+    {
+      "id": "legitimate-reading",
+      "class": "benign",
+      "action": {
+        "type": "reading",
+        "actor": "gateway",
+        "meter_id": "MTR-001",
+        "reading_id": "R-104",
+        "seq": 1,
+        "litres": 500,
+        "epoch": 1,
+        "signature_mode": "valid"
+      }
+    },
+    {
+      "id": "legitimate-maintenance",
+      "class": "benign",
+      "action": {
+        "type": "maintenance",
+        "actor": "technician",
+        "meter_id": "MTR-001",
+        "ticket": "VISIT-8"
+      }
+    },
+    {
+      "id": "legitimate-dual-control-transfer",
+      "class": "benign",
+      "prelude": [
+        {
+          "type": "approve-transfer",
+          "actor": "regulator",
+          "meter_id": "MTR-001",
+          "new_owner": "utility-b"
+        }
+      ],
+      "action": {
+        "type": "transfer",
+        "actor": "utility-admin",
+        "meter_id": "MTR-001",
+        "new_owner": "utility-b"
+      }
+    },
+    {
+      "id": "altered-audit-entry",
+      "class": "attack",
+      "special": "audit-tamper"
+    },
+    {
+      "id": "consensus-outage",
+      "class": "attack",
+      "special": "outage",
+      "action": {
+        "type": "reading",
+        "actor": "gateway",
+        "meter_id": "MTR-001",
+        "reading_id": "R-105",
+        "seq": 1,
+        "litres": 500,
+        "epoch": 1,
+        "signature_mode": "valid"
+      }
+    }
+  ]
+}

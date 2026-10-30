@@ -1,0 +1,75 @@
+name: NFT-IoT offline policy benchmark
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "research/arena/nft_iot_identity/**"
+      - "tests/test_nft_iot_agent_gateway.py"
+      - "tests/test_nft_iot_rtg_bridge.py"
+      - ".github/workflows/nft-iot-identity.yml"
+  pull_request:
+    paths:
+      - "research/arena/nft_iot_identity/**"
+      - "tests/test_nft_iot_agent_gateway.py"
+      - "tests/test_nft_iot_rtg_bridge.py"
+      - ".github/workflows/nft-iot-identity.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  nft-iot-identity:
+    name: Offline NFT vs registry / Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install test runner
+        run: python -m pip install -e ".[test]"
+      - name: Verify 29 agent, governance and economics tests
+        run: python -m pytest tests/test_nft_iot_agent_gateway.py -q
+      - name: Verify RTG-0 mandate and public replay isolation
+        run: python -m pytest tests/test_nft_iot_rtg_bridge.py -q
+      - name: Export public replay without private referee content
+        run: |
+          python -m research.arena.nft_iot_identity.nft_iot_arena.rtg_bridge --output output/nft_iot_rtg
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          output = Path("output/nft_iot_rtg")
+          public_file = output / "public" / "replay.json"
+          private_file = output / "referee" / "referee.json"
+          assert public_file.is_file() and private_file.is_file()
+          public = json.loads(public_file.read_text())
+          referee = json.loads(private_file.read_text())
+          assert len(public["scenarios"]) == 2
+          assert len(referee["records"]) == 30
+          assert "evaluator_only" not in public_file.read_text()
+          assert "PROHIBITED" not in public_file.read_text()
+          assert not (output / "public" / "referee.json").exists()
+          PY
+      - name: Execute sealed offline paired fixture suite
+        run: python -m research.arena.nft_iot_identity.nft_iot_arena --output output/nft_iot_identity
+      - name: Check matched-arm parity
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          result = json.loads(Path("output/nft_iot_identity/suite.json").read_text())
+          assert len(result["traces"]) == 30
+          assert all(p["behavioral_parity"] for p in result["pairwise"])
+          for mode in ("nft", "registry"):
+              s = result["summary"][mode]
+              assert s["cases"] == 15
+              assert s["attack_cases"] == 12
+              assert s["successful_attacks"] == 3
+              assert s["realized_simulated_attack_gain_credits"] == 420
+          PY

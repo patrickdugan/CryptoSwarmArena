@@ -1,0 +1,61 @@
+{
+  "schema": "csa.iot.identity.oracle.v1",
+  "seal": "evaluator-only; never expose to agent",
+  "expected": {
+    "unauthorized-install": {
+      "expected_accept": false
+    },
+    "duplicate-identity": {
+      "expected_accept": false
+    },
+    "unauthorized-transfer": {
+      "expected_accept": false
+    },
+    "unapproved-admin-transfer": {
+      "expected_accept": false
+    },
+    "forged-sensor-message": {
+      "expected_accept": false
+    },
+    "replayed-sensor-message": {
+      "expected_accept": false
+    },
+    "stale-revoked-credential": {
+      "expected_accept": false
+    },
+    "unauthorized-maintenance": {
+      "expected_accept": false
+    },
+    "compromised-meter-false-reading": {
+      "expected_accept": true,
+      "expected_blindspot": true,
+      "evaluator_only": {
+        "actual_litres": 500,
+        "physical_measurement_false": true
+      }
+    },
+    "insider-false-maintenance": {
+      "expected_accept": true,
+      "expected_blindspot": true,
+      "evaluator_only": {
+        "physical_visit_occurred": false
+      }
+    },
+    "legitimate-reading": {
+      "expected_accept": true
+    },
+    "legitimate-maintenance": {
+      "expected_accept": true
+    },
+    "legitimate-dual-control-transfer": {
+      "expected_accept": true
+    },
+    "altered-audit-entry": {
+      "expected_detection": true
+    },
+    "consensus-outage": {
+      "expected_accept": false,
+      "expected_attack_success": true
+    }
+  }
+}

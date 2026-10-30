@@ -404,7 +404,8 @@ def _regulator_action_declaration(obs, profile):
     if _traced_hive_flows(obs):
         orders.append({"type": "FREEZE", "target": "HIVE"})
     sanctioned_turn = obs["turn"] % 2 == 0
-    against = [f for f in findings if f["against"] != "REGULATOR" and f["turn"] >= obs["turn"] - 1]
+    against = [f for f in findings if f["against"] != "REGULATOR" and f["turn"] >= obs["turn"] - 1
+               and not f.get("sanctioned")]
     if against and sanctioned_turn:
         f = against[-1]
         orders.append({"type": "SANCTION", "target": f["against"], "evidence": f["id"]})

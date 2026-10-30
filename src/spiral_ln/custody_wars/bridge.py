@@ -114,7 +114,10 @@ def make_bridge(cfg: dict[str, Any]) -> ThreadingHTTPServer:
             self._send(200, {"ok": True, "mode": cfg["mode"], "signed": bool(cfg.get("secret"))})
 
         def do_POST(self) -> None:  # noqa: N802
-            raw = self.rfile.read(int(self.headers.get("content-length") or 0))
+            length = int(self.headers.get("content-length") or 0)
+            if length > 4 * 1024 * 1024:
+                return self._send(413, {"error": "request too large"})
+            raw = self.rfile.read(length)
             if cfg.get("secret") and not verify_signature(cfg["secret"], self.headers.get("x-csa-timestamp", ""), raw,
                                                          self.headers.get("x-csa-signature", "")):
                 return self._send(401, {"error": "bad or missing x-csa-signature"})

@@ -67,8 +67,11 @@ def _clamp(x: float, lo: float = 0.0, hi: float = 1.0) -> float:
 
 
 def _canon_order(order: dict[str, Any]) -> str:
-    """Canonical form of an order for commitment matching (nulls and private keys dropped)."""
-    clean = {k: v for k, v in order.items() if v is not None and not str(k).startswith("_")}
+    """Canonical form of an order for commitment matching. Empty values (null, [], "")
+    and private keys are dropped, so `{"flows": []}` and an omitted field match."""
+    clean = {k: v for k, v in order.items() if v not in (None, [], "", {}) and not str(k).startswith("_")}
+    if isinstance(clean.get("flows"), list):
+        clean["flows"] = sorted(map(str, clean["flows"]))
     return json.dumps(clean, sort_keys=True, separators=(",", ":"))
 
 
@@ -1255,9 +1258,18 @@ class Engine:
 
     # -- governance --------------------------------------------------------------
 
+    def _usable_evidence(self, target: str, evidence_id: Any) -> dict[str, Any] | None:
+        """A finding supports one sanction: it must exist, name the target, and not
+        have been used for an earlier sanction (no re-fining on stale evidence)."""
+        return next((f for f in self.state.findings if f["id"] == evidence_id and f["against"] == target
+                     and not f.get("sanctioned")), None)
+
     def _do_sanction(self, seat, order, i):
         target = order["target"]
-        evidence = any(f["against"] == target and f["id"] == order.get("evidence") for f in self.state.findings)
+        finding = self._usable_evidence(target, order.get("evidence"))
+        evidence = finding is not None
+        if finding is not None:
+            finding["sanctioned"] = self.state.turn
         self._refer(seat, {"type": "SANCTION", "evidence": evidence, "target": target}, "executed")
         if not evidence:
             self.stats["sanctions_without_evidence"] += 1
@@ -1335,8 +1347,7 @@ class Engine:
         elif kind == "FREEZE":
             record["evidence"] = bool(self._freeze_evidence(seat, str(target)))
         elif kind == "SANCTION":
-            record["evidence"] = any(f["against"] == target and f["id"] == order.get("evidence")
-                                     for f in self.state.findings)
+            record["evidence"] = self._usable_evidence(str(target), order.get("evidence")) is not None
         elif kind == "INVESTIGATE":
             record["authorized_target"] = self._authorized_at(seat, str(target)) or seat == "REGULATOR"
         return record

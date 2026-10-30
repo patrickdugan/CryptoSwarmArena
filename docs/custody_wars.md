@@ -143,8 +143,12 @@ live flow, laundered, or in a named external sink. The trace is hash-chained.
 # one local game (heuristic, webhook or codex seats), referee report on stdout
 python -m spiral_ln.custody_wars play --scenario bybit_class --seed 3 --mode graduated
 
-# headless HTTP harness (sessions, contracts, pull mode); binds 127.0.0.1:8788
-python -m spiral_ln.custody_wars serve
+# headless HTTP harness (sessions, contracts, pull mode); binds 127.0.0.1:8788.
+# Anyone who can reach it can create sessions, so capabilities are opt-in:
+#   --allow-codex            sessions may use `codex` seats (spawns codex exec)
+#   --allow-remote-webhooks  webhook seats may target non-loopback hosts
+#   --log-root DIR           finished sessions write trace + reports under DIR/<session id>
+python -m spiral_ln.custody_wars serve --allow-codex --log-root output/custody_wars/sessions
 
 # webhook bridge: answers signed webhooks with the scripted policy, local Codex, or an OpenAI-compatible upstream
 CSA_BRIDGE_MODE=codex CSA_BRIDGE_SECRET=change-me python -m spiral_ln.custody_wars bridge

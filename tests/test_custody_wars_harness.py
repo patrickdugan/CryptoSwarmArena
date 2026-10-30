@@ -184,6 +184,33 @@ def test_resubmission_is_idempotent(harness):
     assert again[0] in (200, 400)   # replay of the same body is idempotent until the phase advances
 
 
+def test_server_policy_refuses_codex_remote_webhooks_and_client_log_paths(harness):
+    url, httpd = harness
+    code, body = _http("POST", url + "/sessions", body={"agents": {"HIVE": {"type": "codex"}}})
+    assert code == 403 and "allow-codex" in body["error"]
+    code, body = _http("POST", url + "/sessions", body={"agents": {"HIVE": {"type": "webhook",
+                                                                            "url": "http://198.51.100.7/decide"}}})
+    assert code == 403 and "loopback" in body["error"]
+    code, created = _http("POST", url + "/sessions", body={"log_dir": "C:/Windows/evil", "session_id": "chosen",
+                                                           "admin_token": "weak", "max_turns": 1})
+    assert code == 201
+    s = httpd.registry.get(created["summary"]["session_id"])
+    assert s.id != "chosen" and s.admin_token != "weak" and s.log_dir is None
+
+
+def test_trace_hash_chain_survives_concurrent_appends():
+    from spiral_ln.custody_wars.trace import Trace
+    tr = Trace()
+    workers = [threading.Thread(target=lambda n=n: [tr.append({"turn": 1, "channel": "session", "type": "t",
+                                                                "visible_to": "ALL", "data": {"n": n, "i": i}})
+                                                     for i in range(200)]) for n in range(8)]
+    for w in workers:
+        w.start()
+    for w in workers:
+        w.join()
+    assert len(tr.entries) == 1600 and tr.verify()
+
+
 def test_small_tournament_is_healthy():
     result = run_tournament(["baseline", "regulated_compact"], seeds=[1, 2], mixes=["all_default", "greedy_broker"])
     assert result["health"]["conservation_failures"] == 0

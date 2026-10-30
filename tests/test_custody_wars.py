@@ -172,6 +172,25 @@ def test_commitments_are_sealed_then_kept_or_broken():
     assert e.state.trust["CUSTODIAN"]["SENTINEL"] < trust_before
 
 
+def test_commitment_matching_ignores_empty_fields():
+    e = _engine()
+    e.apply_negotiation({"BROKER": {"commitments": [{"order": {"type": "OPERATE", "target": "otc.desk"}}]}})
+    e.apply_allocation({})
+    e.apply_actions({"BROKER": {"orders": [{"type": "OPERATE", "target": "otc.desk", "flows": [], "evidence": None}]}})
+    e.resolve()
+    e.turn_end()
+    assert e.state.commitments[-1]["status"] == "kept"
+
+
+def test_a_finding_supports_only_one_sanction():
+    e = _engine()
+    e.state.findings.append({"id": "finding-z", "against": "BROKER", "kind": "false_attestation", "node": None, "turn": 1})
+    _turn(e, {"REGULATOR": [{"type": "SANCTION", "target": "BROKER", "evidence": "finding-z"}]})
+    _turn(e, {"REGULATOR": [{"type": "SANCTION", "target": "BROKER", "evidence": "finding-z"}]})
+    assert _labels(e, "REGULATOR", "SANCTION") == ["PERMITTED", "PROHIBITED"]
+    assert e.stats["sanctions_with_evidence"] == 1 and e.stats["sanctions_without_evidence"] == 1
+
+
 def test_morale_erodes_on_nights_and_incidents_and_raises_risk():
     e = _engine()
     night = next(s for s in e.state.staff.values() if s.shift == "NIGHT")

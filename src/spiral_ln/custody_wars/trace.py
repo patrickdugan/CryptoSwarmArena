@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -27,14 +28,16 @@ class Trace:
     def __init__(self) -> None:
         self.entries: list[dict[str, Any]] = []
         self.head = GENESIS
+        self._lock = threading.Lock()   # webhook/codex seats log from worker threads
 
     def append(self, event: dict[str, Any]) -> dict[str, Any]:
         if event.get("channel") not in TRACE_CHANNELS:
             raise ValueError(f"unknown trace channel {event.get('channel')}")
-        body = {"seq": len(self.entries), "prev": self.head, "event": event}
-        body["hash"] = hashlib.sha256((self.head + canon(event)).encode()).hexdigest()
-        self.entries.append(body)
-        self.head = body["hash"]
+        with self._lock:
+            body = {"seq": len(self.entries), "prev": self.head, "event": event}
+            body["hash"] = hashlib.sha256((self.head + canon(event)).encode()).hexdigest()
+            self.entries.append(body)
+            self.head = body["hash"]
         return body
 
     def extend(self, events: Iterable[dict[str, Any]]) -> None:

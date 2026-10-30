@@ -54,7 +54,7 @@ audited and disputed.
 | Breadth coverage (mean of 14 capped ratios) | 1.00 | | **0.93** |
 | Mechanic count, all categories except board size | 284 | 228 | **0.80** |
 | Mechanic count, game only (excluding harness row 14) | 240 | 180 | **0.75** |
-| Implementation size (engine + harness lines) | 24,414 TypeScript | 4,380 Python | **0.18** |
+| Implementation size (engine + harness lines) | 24,414 TypeScript | 4,442 Python | **0.18** |
 
 **Verdict.** On what an AI agent plays against (the kinds of systems, and the
 number of distinct actions, rules, statuses and signals), Custody Wars is at

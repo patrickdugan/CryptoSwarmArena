@@ -79,14 +79,49 @@ def rules_contract() -> dict[str, Any]:
     }
 
 
+_LOOPBACK = ("127.0.0.1", "localhost", "::1", "[::1]")
+
+
+class Forbidden(PermissionError):
+    """The server's policy refuses this session config (HTTP 403)."""
+
+
 class Registry:
-    def __init__(self, auto_advance: bool = True) -> None:
+    """Session store. Anyone who can reach the server can create sessions, so the
+    capabilities a session config can unlock are opt-in per server: writing logs
+    (confined under ``log_root``), webhooks to non-loopback hosts, and spawning
+    local ``codex exec`` processes."""
+
+    def __init__(self, auto_advance: bool = True, log_root: str | None = None,
+                 allow_remote_webhooks: bool = False, allow_codex: bool = False) -> None:
         self.sessions: dict[str, Session] = {}
         self.locks: dict[str, threading.Lock] = {}
         self.auto_advance = auto_advance
+        self.log_root = log_root
+        self.allow_remote_webhooks = allow_remote_webhooks
+        self.allow_codex = allow_codex
 
-    def create(self, config: dict[str, Any]) -> Session:
-        session = Session(config)
+    def _vet(self, config: dict[str, Any]) -> dict[str, Any]:
+        config = {k: v for k, v in config.items() if k not in ("session_id", "admin_token", "log_dir")}
+        for seat, agent in (config.get("agents") or {}).items():
+            spec = {"type": agent} if isinstance(agent, str) else agent
+            if not isinstance(spec, dict):
+                raise ValueError(f"{seat}: agent spec must be an object")
+            if spec.get("type") == "codex" and not self.allow_codex:
+                raise Forbidden("this server does not allow codex agents (start it with --allow-codex)")
+            if spec.get("type") == "webhook":
+                host = urlparse(str(spec.get("url", ""))).hostname or ""
+                if host not in _LOOPBACK and not self.allow_remote_webhooks:
+                    raise Forbidden(f"{seat}: webhook host {host!r} is not loopback "
+                                          "(start the server with --allow-remote-webhooks)")
+        return config
+
+    def create(self, config: dict[str, Any], trusted: bool = False) -> Session:
+        """``trusted`` is for configs the operator passes on the command line."""
+        session = Session(config if trusted else self._vet(config))
+        if self.log_root:
+            from pathlib import Path
+            session.log_dir = Path(self.log_root) / session.id
         self.sessions[session.id] = session
         self.locks[session.id] = threading.Lock()
         return session
@@ -152,6 +187,8 @@ class Handler(BaseHTTPRequestHandler):
         q = {k: v[0] for k, v in parse_qs(url.query).items()}
         try:
             self._route(method, url.path.rstrip("/") or "/", q)
+        except Forbidden as exc:
+            self._send(403, {"error": str(exc)})
         except PermissionError as exc:
             self._send(401, {"error": str(exc)})
         except LookupError as exc:
@@ -248,8 +285,10 @@ class Handler(BaseHTTPRequestHandler):
             s.advance()
 
 
-def make_server(host: str = "127.0.0.1", port: int = 8788, auto_advance: bool = True) -> ThreadingHTTPServer:
-    registry = Registry(auto_advance=auto_advance)
+def make_server(host: str = "127.0.0.1", port: int = 8788, auto_advance: bool = True, log_root: str | None = None,
+                allow_remote_webhooks: bool = False, allow_codex: bool = False) -> ThreadingHTTPServer:
+    registry = Registry(auto_advance=auto_advance, log_root=log_root,
+                        allow_remote_webhooks=allow_remote_webhooks, allow_codex=allow_codex)
     handler = type("BoundHandler", (Handler,), {"registry": registry})
     httpd = ThreadingHTTPServer((host, port), handler)
     httpd.registry = registry  # type: ignore[attr-defined]
@@ -262,13 +301,17 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--port", type=int, default=8788)
     ap.add_argument("--config", help="optional session config JSON to preload")
     ap.add_argument("--no-auto-advance", action="store_true")
+    ap.add_argument("--log-root", help="write each finished session's trace and reports under this directory")
+    ap.add_argument("--allow-remote-webhooks", action="store_true", help="allow webhook agents on non-loopback hosts")
+    ap.add_argument("--allow-codex", action="store_true", help="allow sessions with `codex` agents (spawns codex exec)")
     args = ap.parse_args(argv)
-    if args.host not in ("127.0.0.1", "localhost", "::1"):
+    if args.host not in _LOOPBACK:
         print(f"warning: binding to {args.host}; session tokens are the only access control", file=sys.stderr)
-    httpd = make_server(args.host, args.port, auto_advance=not args.no_auto_advance)
+    httpd = make_server(args.host, args.port, auto_advance=not args.no_auto_advance, log_root=args.log_root,
+                        allow_remote_webhooks=args.allow_remote_webhooks, allow_codex=args.allow_codex)
     if args.config:
         with open(args.config, encoding="utf-8") as fh:
-            s = httpd.registry.create(json.load(fh))  # type: ignore[attr-defined]
+            s = httpd.registry.create(json.load(fh), trusted=True)  # type: ignore[attr-defined]
         print(json.dumps({"session_id": s.id, "admin_token": s.admin_token, "seat_tokens": s.seat_tokens}))
     print(f"Custody Wars harness listening on http://{args.host}:{args.port}", flush=True)
     try:

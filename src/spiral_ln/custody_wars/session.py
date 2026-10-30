@@ -391,5 +391,6 @@ def post_webhook(agent: dict[str, Any], request: dict[str, Any]) -> Any:
             last = exc
         except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
             last = exc
-        time.sleep(min(2.0, 0.25 * (2 ** attempt)))
+        if attempt < retries:
+            time.sleep(min(2.0, 0.25 * (2 ** attempt)))
     raise ConnectionError(f"webhook failed after {retries + 1} attempts: {last}")

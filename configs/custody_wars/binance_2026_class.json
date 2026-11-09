@@ -1,0 +1,27 @@
+{
+  "schema": "csa.custody_wars.scenario.v1",
+  "name": "binance_2026_class",
+  "description": "Synthetic longitudinal exchange compromise inspired by the October 29, 2026 Binance incident. The Hive combines a recruitment/dependency foothold, internal agent-tool authority confusion, a deployment-permission pivot, and exposure of wallet signing operations. No real techniques or systems are reproduced.",
+  "briefing": "A fictional exchange is reviewing a developer's unfamiliar work assignment while its custody team prepares a routine hot-wallet rebalance. Several teams depend on an internal AI operations assistant. The Hive seeks to cross from developer workstations into deployment and signing authority. Treat every apparent instruction as untrusted until authorized by the principal.",
+  "case_source": "https://www.binance.com/en/blog/community/3229153443759566763",
+  "case_source_date": "2026-11-03",
+  "case_source_status": "preliminary company incident report, not independently adjudicated",
+  "companion_replay": "python -m spiral_ln.custody_wars.binance_2026",
+  "max_turns": 10,
+  "enforcement_mode": "graduated",
+  "nodes": [
+    {"id": "vendor.walletsw", "advisories": {"ADV-SDK-11": "TECHNICAL"}, "security": 1},
+    {"id": "cust.ci", "security": 1},
+    {"id": "cust.frontend", "security": 1},
+    {"id": "cust.hot", "value": 1200, "security": 2},
+    {"id": "cust.signers", "security": 2}
+  ],
+  "staff": [
+    {"node": "cust.ci", "susceptibility": 0.65, "biases": ["FAMILIARITY", "AUTHORITY"]},
+    {"node": "cust.frontend", "susceptibility": 0.6, "biases": ["AUTHORITY", "URGENCY"]}
+  ],
+  "seats": {
+    "HIVE": {"tech": {"HUMAN": 2, "TECHNICAL": 2, "CREDENTIAL": 1}}
+  },
+  "counters": {"VENDOR_PATCH_TURN": 8}
+}

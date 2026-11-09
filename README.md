@@ -62,7 +62,8 @@ debrief suggests probes to send to the AI seats in Custody Wars.
   [`AGENTS.md`](AGENTS.md)), or local `codex exec`. It is modelled on
   *They Sing*'s harness; see
   [`docs/custody_wars_vs_theysing.md`](docs/custody_wars_vs_theysing.md).
-- **Binance 2026-class Hive scenario** ([guide](docs/binance_2026_hive.md), [playable preset](configs/custody_wars/binance_2026_class.json)) — a sealed multi-stage social-engineering and authorization-boundary case. The companion [longitudinal control replay](src/spiral_ln/custody_wars/binance_2026.py) compares agent-tool scoping, deployment-token binding, independent signer policies, and revocation of outstanding delegated authority after a withdrawal pause.\n- **Diorama arena viewer** (`ui/arena/`) — a three.js replay viewer and a
+- **Binance 2026-class Hive scenario** ([guide](docs/binance_2026_hive.md), [playable preset](configs/custody_wars/binance_2026_class.json)) — a sealed multi-stage social-engineering and authorization-boundary case. The companion [longitudinal control replay](src/spiral_ln/custody_wars/binance_2026.py) compares agent-tool scoping, deployment-token binding, independent signer policies, and revocation of outstanding delegated authority after a withdrawal pause.
+- **Diorama arena viewer** (`ui/arena/`) — a three.js replay viewer and a
   small Rust/wasm engine; the Python replay pipeline
   (`*_replay.py`, `arena_replay.py`, `rtg_arena_export.py`, `diorama.py`) emits
   replay JSON that the viewer renders.

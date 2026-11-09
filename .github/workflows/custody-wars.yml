@@ -38,7 +38,7 @@ jobs:
       - name: Rules, invariants, and live in-process harness (webhook, bridge, pull)
         env:
           PYTHONPATH: src
-        run: python -m pytest tests/test_custody_wars.py tests/test_custody_wars_harness.py -q
+        run: python -m pytest tests/test_custody_wars.py tests/test_custody_wars_harness.py tests/test_custody_wars_binance.py -q
       - name: Scripted tournament health (conservation, trace verification, zero fallbacks)
         env:
           PYTHONPATH: src

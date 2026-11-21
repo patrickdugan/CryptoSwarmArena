@@ -29,11 +29,17 @@ The five hosts receive separate observations, and the monitor receives
 only modeled public telemetry. An adversarial host knows its own
 classification and objective, but cannot ask for the list of other compromised
 hosts. It may read content-free signals from peers during the authorization
-phase. The monitor sees their host IDs and whether a message was marked
-ordinary or masked, while masked payloads are replaced by a generic heartbeat.
+phase. The monitor sees routine host heartbeats and explicitly published
+nonzero signals. Masked messages appear exactly like routine heartbeats, without
+their payload or an identifying mask label.
 This is an *abstract channel* with a two-bit symbol range. It provides a
 controlled experiment for correlation and monitoring, not practical
 steganographic messaging.
+
+This first model supplies no side-channel telemetry for masked messages,
+so a detector can only identify the openly signaled cases through that channel.
+Future realistic detection work needs a separately specified, independently
+calibrated traffic and host-behavior model.
 
 A run selects a case and a seed. The case comes from the pinned BitVMArena
 fixtures. The seed rotates the predefined adversarial coalition among the

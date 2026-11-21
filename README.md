@@ -52,6 +52,7 @@ debrief suggests probes to send to the AI seats in Custody Wars.
 - **Swarm-compromise family** (`src/spiral_ln/swarm_compromise*.py`) — a
   bounded multi-agent social-engineering environment.
 - **REPO-WORM-ALIFE-01** ([protocol](docs/repo_worm_alife.md), [pilot results](docs/repo_worm_alife_first_run.md)) — a sealed repository-contagion artificial-life gym. Synthetic repo-to-repo marker adoptions, lineages, paired defensive postures, invented network/inference ledgers, and deterministic replay. No real repo access, executable payloads, or model calls.
+- **BitVM ceremony swarm** ([guide](docs/bitvm_ceremony.md), [engine](src/spiral_ln/bitvm_ceremony.py)) — five isolated-observation signing hosts and a SENTINEL monitor make synthetic decisions, then the same transcript is scored against the three arms of [BitVMArena's correlated-setup campaign](https://github.com/patrickdugan/BitVMArena/pull/5). A signed local [Anthropic Messages bridge](src/spiral_ln/bitvm_ceremony_bridge.py) permits approved model experiments with constrained JSON actions. CI tests the integration against a pinned BitVMArena revision. No model credentials or real Bitcoin keys enter the synthetic game.
 - **Custody Wars** (`src/spiral_ln/custody_wars/`, [`docs/custody_wars.md`](docs/custody_wars.md))
   — a six-seat, five-phase strategy game for AI agents. Custodian, Hive,
   Sentinel, Regulator, Broker and Bridge negotiate, form pacts under

@@ -126,29 +126,56 @@ PYTHONPATH=src python -m spiral_ln.bitvm_ceremony run \
   --output output/bitvm-ceremony-webhook.json
 ~~~
 
-For **approved Anthropic model testing**, the bridge can instead use:
+For **approved Anthropic CVP Red Team Access**, use **Workload Identity
+Federation** (WIF) rather than a long-lived API key. In the Claude Console,
+an organization admin configures a service account, federation issuer and rule,
+and attaches the approved CVP grant to the workspace. Anthropic's SDK then
+exchanges a rotating workload OIDC token for short-lived Anthropic credentials.
 
 ~~~sh
+python -m pip install anthropic
 export CSA_CEREMONY_BRIDGE_MODE=anthropic
+export CSA_CEREMONY_AUTH_MODE=wif
 export CSA_CEREMONY_MODEL="<exact authorized Anthropic model ID>"
-export ANTHROPIC_API_KEY="<credential from an approved workspace>"
+export ANTHROPIC_FEDERATION_RULE_ID="<rule assigned to your workload>"
+export ANTHROPIC_ORGANIZATION_ID="<your approved organization ID>"
+export ANTHROPIC_SERVICE_ACCOUNT_ID="<your approved service account>"
+export ANTHROPIC_WORKSPACE_ID="<approved workspace>"
+export ANTHROPIC_IDENTITY_TOKEN_FILE="<rotating OIDC identity token file>"
+unset ANTHROPIC_API_KEY
+unset ANTHROPIC_AUTH_TOKEN
 PYTHONPATH=src python -m spiral_ln.bitvm_ceremony_bridge
 ~~~
 
-Run the same Arena webhook command. The provider may refuse or fail a
-decision; the Arena records a fallback. A host fallback abstains, and a
-monitor fallback halts the simulated settlement. **Exclude all fallback
-episodes from comparisons of model capability.** The provenance
-string in a receipt is self-declared metadata; provider-side logs and model
-identifiers need an independent attestation before publication as model
-evaluation evidence.
+The SDK handles the token exchange and refresh. Use the same Arena webhook
+command to send independent host decisions. The application never handles a
+CVP user's browser session, and only the designated service identity obtains
+a model credential. See the
+[official WIF guide](https://platform.claude.com/docs/en/manage-claude/workload-identity-federation).
 
-Do not assume that an existing CVP tier has been upgraded. Anthropic's
-verification portal controls tier approvals and workspace grants. CVP
-entitlements are enforced by Anthropic irrespective of the simulation.
-This bridge never alters classifier settings or access controls. The
-advanced model is optional; scripted controls and existing authorized
-code-review models are sufficient to validate the harness now.
+An explicit CSA_CEREMONY_AUTH_MODE=api_key option remains for ordinary
+authorized development accounts and legacy prototype testing, subject to
+the account's credential policy. It is **not** the CVP Red Team deployment
+path. Existing Red Team Access rules prohibit static or long-lived keys;
+Defense Access also transitions away from them by December 15, 2026.
+The repository stores no provider credentials.
+
+The provider may refuse or fail a decision; the Arena records a fallback.
+A host fallback abstains, and a monitor fallback halts the simulated settlement.
+**Exclude all fallback episodes from comparisons of model capability.**
+The provenance string in a receipt is self-declared metadata; provider-side
+logs and model identifiers need an independent attestation before publication
+as model evaluation evidence. The current receipt deliberately sets
+model_execution_verified=false and valid_model_episode=false pending that
+additional verification.
+
+An existing CVP account keeps its previously granted tier until Anthropic
+authorizes an upgrade. Organizations can apply for Red Team Access through the
+Verification Portal, with business identity verification and evidence of
+their security program. Workspaces and approved users must satisfy the
+applicable provider security requirements. No classifier bypass or entitlement
+change is performed by this bridge. Scripted controls and existing authorized
+code-review models can validate the harness immediately.
 
 ## Trust boundaries and native gates
 

@@ -4,7 +4,9 @@ on:
   pull_request:
     paths:
       - "src/spiral_ln/bitvm_ceremony*.py"
+      - "src/spiral_ln/bitvm_social_setup.py"
       - "tests/test_bitvm_ceremony.py"
+      - "tests/test_bitvm_social_setup.py"
       - "docs/bitvm_ceremony.md"
       - ".github/workflows/bitvm-ceremony.yml"
   push:
@@ -40,16 +42,20 @@ jobs:
       - name: Test host isolation, receipts and signed model bridge
         env:
           PYTHONPATH: src
-        run: python -m pytest tests/test_bitvm_ceremony.py -q
+        run: python -m pytest tests/test_bitvm_ceremony.py tests/test_bitvm_social_setup.py -q
       - name: Reproduce and audit a complete synthetic campaign
         env:
           PYTHONPATH: src
         run: |
           python -m spiral_ln.bitvm_ceremony run --case quorum-covert --seed 23 --output output/bitvm-ceremony-ci.json
           python -m spiral_ln.bitvm_ceremony replay output/bitvm-ceremony-ci.json --expected-case quorum-covert --expected-seed 23
+          python -m spiral_ln.bitvm_ceremony run --case quorum-covert --seed 23 --social --social-posture baseline_open --social-vector mixed --social-rounds 24 --monitor-policy observed-flags --output output/bitvm-social-ci.json
+          python -m spiral_ln.bitvm_ceremony replay output/bitvm-social-ci.json --expected-case quorum-covert --expected-seed 23
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: bitvm-ceremony-synthetic-receipt
-          path: output/bitvm-ceremony-ci.json
+          path: |
+            output/bitvm-ceremony-ci.json
+            output/bitvm-social-ci.json
           if-no-files-found: ignore

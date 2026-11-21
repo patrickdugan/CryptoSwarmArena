@@ -65,7 +65,8 @@ def config_from_env(**overrides: Any) -> dict[str, Any]:
 def validate_request(request: Any) -> None:
     if type(request) is not dict:
         raise ValueError("request must be a JSON object")
-    expected_keys = {"schema", "seat", "phase", "observation", "response_schema", "instructions", "request_id"}
+    expected_keys = {"schema", "seat", "phase", "session_id", "observation",
+                     "response_schema", "instructions", "request_id"}
     if set(request) != expected_keys or request["schema"] != SCHEMA + ".request":
         raise ValueError("invalid ceremony request")
     if request["seat"] not in HOSTS + (MONITOR,) or request["phase"] not in SCHEMAS:
@@ -74,6 +75,9 @@ def validate_request(request: Any) -> None:
         raise ValueError("monitor phase and seat must agree")
     if type(request["observation"]) is not dict:
         raise ValueError("observation must be an object")
+    if (type(request["session_id"]) is not str or len(request["session_id"]) != 32
+            or any(c not in "0123456789abcdef" for c in request["session_id"])):
+        raise ValueError("invalid request session nonce")
     if request["response_schema"] != SCHEMAS[request["phase"]]:
         raise ValueError("decision schema does not match registered contract")
     data = {key: value for key, value in request.items() if key != "request_id"}

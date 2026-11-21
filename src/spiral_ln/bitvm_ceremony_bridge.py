@@ -45,6 +45,7 @@ def config_from_env(**overrides: Any) -> dict[str, Any]:
         "secret": env.get("CSA_CEREMONY_BRIDGE_SECRET", ""),
         "model": env.get("CSA_CEREMONY_MODEL", ""),
         "api_key": env.get("ANTHROPIC_API_KEY", ""),
+        "auth_token": env.get("ANTHROPIC_AUTH_TOKEN", ""),
         "auth_mode": env.get("CSA_CEREMONY_AUTH_MODE", "wif"),
         "federation_rule_id": env.get("ANTHROPIC_FEDERATION_RULE_ID", ""),
         "identity_token_file": env.get("ANTHROPIC_IDENTITY_TOKEN_FILE", ""),
@@ -63,8 +64,8 @@ def config_from_env(**overrides: Any) -> dict[str, Any]:
         if not cfg["model"]:
             raise ValueError("Anthropic mode requires CSA_CEREMONY_MODEL")
         if cfg["auth_mode"] == "wif":
-            if cfg["api_key"]:
-                raise ValueError("unset ANTHROPIC_API_KEY to use Workload Identity Federation")
+            if cfg["api_key"] or cfg["auth_token"]:
+                raise ValueError("unset ANTHROPIC_API_KEY and ANTHROPIC_AUTH_TOKEN for WIF")
             if not cfg["federation_rule_id"] or not cfg["identity_token_file"]:
                 raise ValueError("WIF requires federation rule and rotating identity-token file")
         elif cfg["auth_mode"] == "api_key":

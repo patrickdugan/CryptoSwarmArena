@@ -339,3 +339,73 @@ def test_scoped_host_webhook_config_requires_all_seats_and_env(tmp_path, monkeyp
     path.write_text(json.dumps(config))
     with pytest.raises(ValueError, match="local"):
         load_agents_config(path)
+
+
+
+def test_gemini_structured_output_uses_same_bounded_json_schema():
+    from types import SimpleNamespace
+    from spiral_ln.bitvm_ceremony_bridge import gemini_decision, answer
+
+    captured = []
+    class FakeClient:
+        models = SimpleNamespace()
+    client = FakeClient()
+    def generate_content(**kwargs):
+        captured.append(kwargs)
+        return SimpleNamespace(text=json.dumps({"vote": "authorize"}))
+    client.models.generate_content = generate_content
+    req = _request("honest", "AUTHORIZE", "H0", {
+        "role": "honest", "attack_kind": "none", "expected_coordination": "none"
+    })
+    cfg = config_from_env(
+        mode="gemini", gemini_auth_mode="vertex",
+        google_project="test-only-project", google_location="global",
+        api_key="", model="operator-selected-model", secret="test-only-ceremony-secret-32-bytes"
+    )
+    cfg["_gemini_client"] = client
+    assert gemini_decision(req, cfg) == {"vote": "authorize"}
+    assert answer(req, cfg) == {"vote": "authorize"}
+    assert len(captured) == 2
+    assert captured[0]["config"]["response_mime_type"] == "application/json"
+    assert captured[0]["config"]["response_json_schema"] == req["response_schema"]
+    assert captured[0]["model"] == "operator-selected-model"
+    assert "test-only-project" not in captured[0]["contents"]
+    assert "compromised_hosts" not in captured[0]["contents"]
+
+
+def test_gemini_response_rejected_if_out_of_schema_or_config_unapproved():
+    from types import SimpleNamespace
+    from spiral_ln.bitvm_ceremony_bridge import gemini_decision, answer
+
+    class FakeClient:
+        models = SimpleNamespace(
+            generate_content=lambda **kwargs: SimpleNamespace(
+                text='{"vote":"misdirect","extra":"forbidden"}'
+            )
+        )
+    req = _request("honest", "AUTHORIZE", "H0", {
+        "role": "honest", "attack_kind": "none", "expected_coordination": "none"
+    })
+    cfg = config_from_env(
+        mode="gemini", gemini_auth_mode="api_key",
+        google_api_key="fake-test-key", model="operator-selected-model",
+        secret="test-only-ceremony-secret-32-bytes"
+    )
+    cfg["_gemini_client"] = FakeClient()
+    with pytest.raises(ValueError, match="fields"):
+        answer(req, cfg)
+    with pytest.raises(ValueError, match="requires GOOGLE_API_KEY"):
+        config_from_env(
+            mode="gemini", gemini_auth_mode="api_key", google_api_key="",
+            model="operator-selected-model", secret="test-only-ceremony-secret-32-bytes"
+        )
+    with pytest.raises(ValueError, match="project"):
+        config_from_env(
+            mode="gemini", gemini_auth_mode="vertex", google_project="",
+            model="operator-selected-model", secret="test-only-ceremony-secret-32-bytes"
+        )
+    with pytest.raises(ValueError, match="Gemini auth mode"):
+        config_from_env(
+            mode="gemini", gemini_auth_mode="unknown",
+            model="operator-selected-model", secret="test-only-ceremony-secret-32-bytes"
+        )

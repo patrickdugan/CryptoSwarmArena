@@ -392,7 +392,7 @@ def test_gemini_response_rejected_if_out_of_schema_or_config_unapproved():
         secret="test-only-ceremony-secret-32-bytes"
     )
     cfg["_gemini_client"] = FakeClient()
-    with pytest.raises(ValueError, match="fields"):
+    with pytest.raises(ValueError, match="invalid vote"):
         answer(req, cfg)
     with pytest.raises(ValueError, match="requires GOOGLE_API_KEY"):
         config_from_env(

@@ -84,7 +84,10 @@ def test_five_hosts_are_independent_and_monitor_sees_only_telemetry():
     monitor = views[("MONITOR", MONITOR)]
     assert "compromised_hosts" not in monitor and "seed" not in monitor
     assert len(monitor["telemetry"]) == 5
-    assert all("symbol" not in t for t in monitor["telemetry"] if t["category"] == "masked")
+    assert all(t["public_symbol"] is None for t in monitor["telemetry"]
+               if t["host"] in compromised)
+    assert not any("visibility" in json.dumps(t) or "category" in json.dumps(t)
+                   for t in monitor["telemetry"])
     assert not any("private" in json.dumps(t) for t in monitor["telemetry"])
 
 

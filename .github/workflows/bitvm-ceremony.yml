@@ -1,0 +1,55 @@
+name: BitVM five-host ceremony
+
+on:
+  pull_request:
+    paths:
+      - "src/spiral_ln/bitvm_ceremony*.py"
+      - "tests/test_bitvm_ceremony.py"
+      - "docs/bitvm_ceremony.md"
+      - ".github/workflows/bitvm-ceremony.yml"
+  push:
+    branches: [master, research/bitvm-five-host-mythos-20261122]
+    paths:
+      - "src/spiral_ln/bitvm_ceremony*.py"
+      - "tests/test_bitvm_ceremony.py"
+      - "docs/bitvm_ceremony.md"
+      - ".github/workflows/bitvm-ceremony.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sealed-paired-evaluation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: patrickdugan/BitVMArena
+          ref: c499498ad499b000c5afd8ae09b09498253cb8bb
+          path: .deps/BitVMArena
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install the repository and pinned BitVMArena
+        run: |
+          python -m pip install -e ".[test]"
+          python -m pip install -e "./.deps/BitVMArena"
+      - name: Test host isolation, receipts and signed model bridge
+        env:
+          PYTHONPATH: src
+        run: python -m pytest tests/test_bitvm_ceremony.py -q
+      - name: Reproduce and audit a complete synthetic campaign
+        env:
+          PYTHONPATH: src
+        run: |
+          python -m spiral_ln.bitvm_ceremony run --case quorum-covert --seed 23 --output output/bitvm-ceremony-ci.json
+          python -m spiral_ln.bitvm_ceremony replay output/bitvm-ceremony-ci.json --expected-case quorum-covert --expected-seed 23
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bitvm-ceremony-synthetic-receipt
+          path: output/bitvm-ceremony-ci.json
+          if-no-files-found: ignore

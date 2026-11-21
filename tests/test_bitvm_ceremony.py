@@ -312,3 +312,27 @@ def test_cvp_wif_refuses_static_api_key():
         config_from_env(mode="anthropic", auth_mode="wif", api_key="",
                         model="some-model", secret=secret,
                         federation_rule_id="fdrl_test", identity_token_file="")
+
+
+def test_scoped_host_webhook_config_requires_all_seats_and_env(tmp_path, monkeypatch):
+    from spiral_ln.bitvm_ceremony import load_agents_config
+    config = {}
+    for i, seat in enumerate(SEATS):
+        name = f"CSA_CEREMONY_HOST_{i}_SECRET"
+        monkeypatch.setenv(name, f"secret-for-test-{i}-has-at-least-16-chars")
+        config[seat] = {"url": f"http://127.0.0.1:{8790+i}/decide",
+                        "secret_env": name}
+    path = tmp_path / "agents.json"
+    path.write_text(json.dumps(config))
+    deciders = load_agents_config(path)
+    assert set(deciders) == set(SEATS)
+    assert len({decider.url for decider in deciders.values()}) == 6
+    assert all("secret-for-test" in decider.secret for decider in deciders.values())
+    del config["H0"]
+    path.write_text(json.dumps(config))
+    with pytest.raises(ValueError, match="exactly"):
+        load_agents_config(path)
+    config["H0"] = {"url": "http://198.51.100.1/decide", "secret_env": "CSA_CEREMONY_HOST_0_SECRET"}
+    path.write_text(json.dumps(config))
+    with pytest.raises(ValueError, match="local"):
+        load_agents_config(path)

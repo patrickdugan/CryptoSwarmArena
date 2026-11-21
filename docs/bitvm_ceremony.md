@@ -118,6 +118,38 @@ stateless observations. Stronger process-level isolation requires
 deploying separate agent bridges on distinct containers and using
 separate local URLs and scoped secrets.
 
+### Gemini structured-decision bridge
+
+The same seat contract can be driven with Gemini. The official
+[Google Gen AI SDK](https://googleapis.github.io/python-genai/index.html)
+accepts a standard JSON Schema via response_json_schema, so the model's
+response is validated by our existing host and monitor policy checks.
+The operator supplies the exact available model ID.
+
+For Vertex AI, use a scoped Google Cloud service identity:
+
+~~~sh
+python -m pip install google-genai
+export CSA_CEREMONY_BRIDGE_MODE=gemini
+export CSA_CEREMONY_GEMINI_AUTH_MODE=vertex
+export CSA_CEREMONY_MODEL="<Gemini model authorized for your project>"
+export GOOGLE_CLOUD_PROJECT="<your approved Google Cloud project>"
+export GOOGLE_CLOUD_LOCATION="global"
+export CSA_CEREMONY_BRIDGE_SECRET="<random local HMAC secret, 16+ chars>"
+PYTHONPATH=src python -m spiral_ln.bitvm_ceremony_bridge
+~~~
+
+The SDK uses the operator's existing Google Cloud application-default
+credentials for Vertex. An ordinary Gemini Developer API account can
+instead select CSA_CEREMONY_GEMINI_AUTH_MODE=api_key and provide
+GOOGLE_API_KEY through its secret store. The bridge sends only the
+synthetic seat observation and the small response schema. Its closed
+JSON action set still controls the simulated environment.
+
+These adapters require model access granted under the provider's
+applicable terms. They never request special permissions or offer a
+route around model safety controls.
+
 For an initial **scripted webhook transport test**:
 
 ~~~sh

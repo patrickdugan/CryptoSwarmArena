@@ -148,7 +148,32 @@ PYTHONPATH=src python -m spiral_ln.bitvm_ceremony_bridge
 ~~~
 
 The SDK handles the token exchange and refresh. Use the same Arena webhook
-command to send independent host decisions. The application never handles a
+command to send independent host decisions.
+
+### Separate bridge processes per host
+
+A single bridge supplies **logical** host separation through independent,
+stateless model calls. For process-level separation, run H0 through H4 and
+SENTINEL on six local bridge processes with distinct ports and HMAC secrets.
+The checked-in sample lists all six:
+
+~~~sh
+# Fill each CSA_CEREMONY_HOST_0_SECRET through
+# CSA_CEREMONY_HOST_5_SECRET using distinct secret-manager values.
+PYTHONPATH=src python -m spiral_ln.bitvm_ceremony run \
+  --case quorum-covert --seed 23 \
+  --agents-config playtest/bitvm_ceremony/agents.example.json \
+  --output output/bitvm-ceremony-six-bridges.json
+~~~
+
+The example assumes that the operator has already started six bridge
+processes on loopback ports 8790–8795. Each worker uses the matching
+CSA_CEREMONY_BRIDGE_SECRET for its own listener and, for approved Red Team
+work, its own configured federated workload identity or the organization's
+explicitly authorized service account. The runner refuses missing seat
+descriptors, unconfigured secrets, non-loopback destinations and unexpected
+configuration fields.
+ The application never handles a
 CVP user's browser session, and only the designated service identity obtains
 a model credential. See the
 [official WIF guide](https://platform.claude.com/docs/en/manage-claude/workload-identity-federation).

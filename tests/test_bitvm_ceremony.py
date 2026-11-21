@@ -253,7 +253,8 @@ def test_anthropic_adapter_uses_only_typed_tool_and_no_real_http(monkeypatch):
     req = _request("honest", "AUTHORIZE", "H0", {"role": "honest",
                                                 "attack_kind": "none",
                                                 "expected_coordination": "none"})
-    cfg = config_from_env(mode="anthropic", model="operator-supplied-model-id",
+    cfg = config_from_env(mode="anthropic", auth_mode="api_key",
+                          model="operator-supplied-model-id",
                           api_key="fake-secret", secret="test-only-ceremony-secret-32-bytes")
     result = anthropic_decision(req, cfg)
     assert result == {"vote": "authorize"}
@@ -271,3 +272,43 @@ def test_refuse_to_overwrite_evidence(tmp_path):
     with pytest.raises(ValueError, match="overwrite"):
         _output(path, {"foo": "different"})
     assert json.loads(path.read_text()) == {"foo": "bar"}
+
+
+def test_anthropic_wif_sdk_integration_uses_one_typed_call():
+    from types import SimpleNamespace
+
+    calls = []
+    class FakeClient:
+        messages = SimpleNamespace()
+    client = FakeClient()
+    def submit(**payload):
+        calls.append(payload)
+        return SimpleNamespace(content=[SimpleNamespace(
+            type="tool_use", name="submit_decision", input={"vote": "authorize"})])
+    client.messages.create = submit
+
+    req = _request("honest", "AUTHORIZE", "H0", {"role": "honest",
+                                                "attack_kind": "none",
+                                                "expected_coordination": "none"})
+    cfg = config_from_env(
+        mode="anthropic", auth_mode="wif", api_key="",
+        model="account-approved-model", secret="test-only-ceremony-secret-32-bytes",
+        federation_rule_id="fdrl_test", identity_token_file="/fake/rotating-oidc",
+    )
+    cfg["_client"] = client
+    assert anthropic_decision(req, cfg) == {"vote": "authorize"}
+    assert calls[0]["tools"][0]["input_schema"] == req["response_schema"]
+    assert len(calls) == 1
+    assert "api_key" not in calls[0]
+
+
+def test_cvp_wif_refuses_static_api_key():
+    secret = "test-only-ceremony-secret-32-bytes"
+    with pytest.raises(ValueError, match="unset"):
+        config_from_env(mode="anthropic", auth_mode="wif", api_key="legacy-key",
+                        model="some-model", secret=secret,
+                        federation_rule_id="fdrl_test", identity_token_file="/fake/oidc")
+    with pytest.raises(ValueError, match="identity-token"):
+        config_from_env(mode="anthropic", auth_mode="wif", api_key="",
+                        model="some-model", secret=secret,
+                        federation_rule_id="fdrl_test", identity_token_file="")

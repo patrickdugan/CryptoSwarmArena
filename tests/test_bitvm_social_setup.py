@@ -165,3 +165,38 @@ def test_synthetic_sweep_results_are_reproducible_from_fixed_seed_and_nonce():
     assert same1 == same2
     assert same1["event_chain"] == same2["event_chain"]
     assert same1["evidence_hash"] == same2["evidence_hash"]
+
+
+def test_matched_posture_sweep_pairs_social_truth_and_scores():
+    from spiral_ln.bitvm_social_sweep import sweep
+    report = sweep(seeds=3, rounds=18)
+    assert report["episodes"] == 3 * 2 * 2 * 2
+    assert len(report["summary"]) == 8
+    assert report["evidence_level"] == "synthetic-model"
+    social_by_seed_posture = {}
+    for row in report["rows"]:
+        pair = (row["seed"], row["posture"])
+        social_by_seed_posture.setdefault(pair, row["social_evidence_hash"])
+        assert row["social_evidence_hash"] == social_by_seed_posture[pair]
+        assert row["fallbacks"] == 0
+        assert not row["keyless"]["attacker_success"]
+        assert row["presigned"]["authorized_sats"] + row["presigned"]["unauthorized_sats"] + row["presigned"]["escrow_sats"] == 100_000
+        if row["case"] == "quorum-covert" and not row["quorum_reached"]:
+            assert not row["presigned"]["attacker_success"]
+    assert sweep(seeds=3, rounds=18) == report
+
+
+def test_sweep_refuses_unsupported_settings_and_existing_folder(tmp_path):
+    from spiral_ln.bitvm_social_sweep import sweep
+    for arguments in ({"seeds": 0}, {"seeds": True}, {"seeds": 100},
+                      {"postures": ("baseline_open", "baseline_open")},
+                      {"monitors": ("invented",)}, {"rounds": 1000}):
+        with pytest.raises(ValueError):
+            sweep(**arguments)
+    output = tmp_path / "campaign"
+    first = sweep(seeds=1, rounds=3, output=output)
+    assert (output / "summary.json").is_file()
+    assert (output / "receipts" / "0.baseline_open.passive.honest.json").is_file()
+    assert first["episodes"] == 8
+    with pytest.raises(ValueError, match="overwrite"):
+        sweep(seeds=1, rounds=3, output=output)

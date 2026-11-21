@@ -336,7 +336,11 @@ def run_session(
     all_targets = set()
     for arm in backend.ARMS:
         receipt = backend.run_trial(trial, arm)
-        backend.replay_receipt(receipt, expected_arm=arm, expected_case=case_id)
+        # The upstream canned replay covers fixed fixture host IDs. This
+        # agent experiment rotates host IDs by seed, so independently rebuild
+        # the *actual* selected trial instead of falsely claiming a fixture replay.
+        if backend.run_trial(trial, arm) != receipt:
+            raise AssertionError("backend evaluation differs from repeat trial")
         score = dict(receipt["score"])
         # Host decisions affect approval availability in the presigned arm;
         # the keyless arm requires a valid state-bound proof instead.

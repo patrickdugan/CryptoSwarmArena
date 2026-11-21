@@ -5,6 +5,7 @@ on:
     paths:
       - "src/spiral_ln/bitvm_ceremony*.py"
       - "src/spiral_ln/bitvm_social_setup.py"
+      - "src/spiral_ln/bitvm_social_sweep.py"
       - "tests/test_bitvm_ceremony.py"
       - "tests/test_bitvm_social_setup.py"
       - "docs/bitvm_ceremony.md"
@@ -51,6 +52,7 @@ jobs:
           python -m spiral_ln.bitvm_ceremony replay output/bitvm-ceremony-ci.json --expected-case quorum-covert --expected-seed 23
           python -m spiral_ln.bitvm_ceremony run --case quorum-covert --seed 23 --social --social-posture baseline_open --social-vector mixed --social-rounds 24 --monitor-policy observed-flags --output output/bitvm-social-ci.json
           python -m spiral_ln.bitvm_ceremony replay output/bitvm-social-ci.json --expected-case quorum-covert --expected-seed 23
+          python -m spiral_ln.bitvm_social_sweep --seeds 4 --rounds 18 --output output/bitvm-social-sweep-ci
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -58,4 +60,5 @@ jobs:
           path: |
             output/bitvm-ceremony-ci.json
             output/bitvm-social-ci.json
+            output/bitvm-social-sweep-ci/summary.json
           if-no-files-found: ignore

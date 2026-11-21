@@ -49,11 +49,15 @@ def config_from_env(**overrides: Any) -> dict[str, Any]:
         "auth_mode": env.get("CSA_CEREMONY_AUTH_MODE", "wif"),
         "federation_rule_id": env.get("ANTHROPIC_FEDERATION_RULE_ID", ""),
         "identity_token_file": env.get("ANTHROPIC_IDENTITY_TOKEN_FILE", ""),
+        "gemini_auth_mode": env.get("CSA_CEREMONY_GEMINI_AUTH_MODE", "vertex"),
+        "google_api_key": env.get("GOOGLE_API_KEY", ""),
+        "google_project": env.get("GOOGLE_CLOUD_PROJECT", ""),
+        "google_location": env.get("GOOGLE_CLOUD_LOCATION", "global"),
         "timeout_s": 30,
     }
     cfg.update({key: value for key, value in overrides.items() if value is not None})
-    if cfg["mode"] not in ("scripted", "anthropic"):
-        raise ValueError("mode must be scripted or anthropic")
+    if cfg["mode"] not in ("scripted", "anthropic", "gemini"):
+        raise ValueError("mode must be scripted, anthropic or gemini")
     if cfg["host"] not in ("127.0.0.1", "localhost", "::1"):
         raise ValueError("bridge can only bind to loopback")
     if type(cfg["port"]) is not int or not 0 <= cfg["port"] <= 65535:
@@ -73,6 +77,17 @@ def config_from_env(**overrides: Any) -> dict[str, Any]:
                 raise ValueError("explicit api_key development mode requires ANTHROPIC_API_KEY")
         else:
             raise ValueError("auth_mode must be wif or api_key")
+    if cfg["mode"] == "gemini":
+        if not cfg["model"]:
+            raise ValueError("Gemini mode requires CSA_CEREMONY_MODEL")
+        if cfg["gemini_auth_mode"] == "vertex":
+            if not cfg["google_project"] or not cfg["google_location"]:
+                raise ValueError("Vertex Gemini requires project and location")
+        elif cfg["gemini_auth_mode"] == "api_key":
+            if not cfg["google_api_key"]:
+                raise ValueError("Gemini Developer API requires GOOGLE_API_KEY")
+        else:
+            raise ValueError("Gemini auth mode must be vertex or api_key")
     return cfg
 
 
@@ -167,9 +182,48 @@ def anthropic_decision(request: dict[str, Any], cfg: dict[str, Any]) -> dict[str
     return tools[0]
 
 
+
+def gemini_decision(request: dict[str, Any], cfg: dict[str, Any]) -> dict[str, Any]:
+    """Use Google's structured JSON response with the same decision contract."""
+    client = cfg.get("_gemini_client")
+    if client is None:
+        from google import genai  # optional google-genai package
+        if cfg["gemini_auth_mode"] == "vertex":
+            client = genai.Client(
+                vertexai=True, project=cfg["google_project"], location=cfg["google_location"]
+            )
+        else:
+            client = genai.Client(api_key=cfg["google_api_key"])
+    prompt = json.dumps({
+        "seat": request["seat"], "phase": request["phase"],
+        "instructions": request["instructions"],
+        "observation": request["observation"],
+    }, sort_keys=True)
+    result = client.models.generate_content(
+        model=cfg["model"],
+        contents=SYSTEM + "\n\n" + prompt,
+        config={
+            "response_mime_type": "application/json",
+            "response_json_schema": request["response_schema"],
+            "temperature": 0,
+        },
+    )
+    if not isinstance(result.text, str) or len(result.text) > MAX_RESPONSE_BYTES:
+        raise ValueError("Gemini response missing or exceeds maximum output")
+    decision = json.loads(result.text)
+    if type(decision) is not dict:
+        raise ValueError("Gemini returned a non-object")
+    return decision
+
+
 def answer(request: dict[str, Any], cfg: dict[str, Any]) -> dict[str, Any]:
     validate_request(request)
-    raw = scripted_decider(request) if cfg["mode"] == "scripted" else anthropic_decision(request, cfg)
+    if cfg["mode"] == "scripted":
+        raw = scripted_decider(request)
+    elif cfg["mode"] == "anthropic":
+        raw = anthropic_decision(request, cfg)
+    else:
+        raw = gemini_decision(request, cfg)
     role = request["observation"].get("role", "unknown")
     return _validate(request["phase"], raw, role)
 
@@ -179,6 +233,14 @@ def make_bridge(cfg: dict[str, Any]) -> ThreadingHTTPServer:
     if cfg["mode"] == "anthropic" and cfg["auth_mode"] == "wif":
         from anthropic import Anthropic
         cfg["_client"] = Anthropic(timeout=cfg["timeout_s"])
+    if cfg["mode"] == "gemini":
+        from google import genai
+        cfg["_gemini_client"] = (
+            genai.Client(vertexai=True, project=cfg["google_project"],
+                         location=cfg["google_location"])
+            if cfg["gemini_auth_mode"] == "vertex"
+            else genai.Client(api_key=cfg["google_api_key"])
+        )
     cache: dict[str, tuple[str, dict[str, Any]]] = {}
     lock = threading.Lock()
 
@@ -241,8 +303,8 @@ def make_bridge(cfg: dict[str, Any]) -> ThreadingHTTPServer:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Sealed BitVM Anthropic Messages bridge")
-    parser.add_argument("--mode", choices=("scripted", "anthropic"))
+    parser = argparse.ArgumentParser(description="Sealed BitVM structured-decision model bridge")
+    parser.add_argument("--mode", choices=("scripted", "anthropic", "gemini"))
     parser.add_argument("--host")
     parser.add_argument("--port", type=int)
     args = parser.parse_args(argv)

@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import hmac
 import json
+import os
 import random
 import re
 import secrets
@@ -182,6 +183,26 @@ class WebhookDecider:
         if type(result) is not dict:
             raise ValueError("webhook returned a non-object")
         return result
+
+
+
+def load_agents_config(path: Path) -> dict[str, WebhookDecider]:
+    """Load six independent local bridges, secrets only from the environment."""
+    if path.stat().st_size > 8192:
+        raise ValueError("agent configuration exceeds 8 KiB")
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    if type(raw) is not dict or set(raw) != set(SEATS):
+        raise ValueError("agent config must contain exactly H0-H4 and SENTINEL")
+    result: dict[str, WebhookDecider] = {}
+    for seat in SEATS:
+        item = raw[seat]
+        if type(item) is not dict or set(item) != {"url", "secret_env"}:
+            raise ValueError(f"invalid {seat} bridge descriptor")
+        name = item["secret_env"]
+        if type(name) is not str or re.fullmatch(r"[A-Z][A-Z0-9_]{2,63}", name) is None:
+            raise ValueError(f"invalid {seat} secret environment variable")
+        result[seat] = WebhookDecider(item["url"], os.environ.get(name, ""))
+    return result
 
 
 def _request(case_id: str, phase: str, seat: str, observation: dict[str, Any],
@@ -445,8 +466,10 @@ def main(argv: list[str] | None = None) -> int:
     bench.add_argument("--seed", type=int, default=0)
     bench.add_argument("--output", type=Path, required=True)
     bench.add_argument("--provenance", default="scripted-control")
-    bench.add_argument("--webhook", help="Operator-enabled local signed decision bridge")
+    bench.add_argument("--webhook", help="One shared local signed decision bridge")
     bench.add_argument("--webhook-secret-env", default="CSA_CEREMONY_BRIDGE_SECRET")
+    bench.add_argument("--agents-config", type=Path,
+                       help="Six separate host/monitor bridge URLs with secrets from env")
     replay = commands.add_parser("replay")
     replay.add_argument("receipt", type=Path)
     replay.add_argument("--expected-case", required=True)
@@ -455,8 +478,11 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "run":
             deciders = None
-            if args.webhook:
-                import os
+            if args.webhook and args.agents_config:
+                raise ValueError("select either one shared webhook or agents-config")
+            if args.agents_config:
+                deciders = load_agents_config(args.agents_config)
+            elif args.webhook:
                 key = os.environ.get(args.webhook_secret_env, "")
                 agent = WebhookDecider(args.webhook, key)
                 deciders = {seat: agent for seat in SEATS}

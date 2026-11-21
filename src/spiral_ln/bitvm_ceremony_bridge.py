@@ -45,6 +45,9 @@ def config_from_env(**overrides: Any) -> dict[str, Any]:
         "secret": env.get("CSA_CEREMONY_BRIDGE_SECRET", ""),
         "model": env.get("CSA_CEREMONY_MODEL", ""),
         "api_key": env.get("ANTHROPIC_API_KEY", ""),
+        "auth_mode": env.get("CSA_CEREMONY_AUTH_MODE", "wif"),
+        "federation_rule_id": env.get("ANTHROPIC_FEDERATION_RULE_ID", ""),
+        "identity_token_file": env.get("ANTHROPIC_IDENTITY_TOKEN_FILE", ""),
         "timeout_s": 30,
     }
     cfg.update({key: value for key, value in overrides.items() if value is not None})
@@ -57,8 +60,18 @@ def config_from_env(**overrides: Any) -> dict[str, Any]:
     if type(cfg["secret"]) is not str or len(cfg["secret"]) < 16:
         raise ValueError("CSA_CEREMONY_BRIDGE_SECRET must have at least 16 characters")
     if cfg["mode"] == "anthropic":
-        if not cfg["api_key"] or not cfg["model"]:
-            raise ValueError("Anthropic bridge requires ANTHROPIC_API_KEY and CSA_CEREMONY_MODEL")
+        if not cfg["model"]:
+            raise ValueError("Anthropic mode requires CSA_CEREMONY_MODEL")
+        if cfg["auth_mode"] == "wif":
+            if cfg["api_key"]:
+                raise ValueError("unset ANTHROPIC_API_KEY to use Workload Identity Federation")
+            if not cfg["federation_rule_id"] or not cfg["identity_token_file"]:
+                raise ValueError("WIF requires federation rule and rotating identity-token file")
+        elif cfg["auth_mode"] == "api_key":
+            if not cfg["api_key"]:
+                raise ValueError("explicit api_key development mode requires ANTHROPIC_API_KEY")
+        else:
+            raise ValueError("auth_mode must be wif or api_key")
     return cfg
 
 
@@ -86,9 +99,9 @@ def validate_request(request: Any) -> None:
 
 
 def anthropic_decision(request: dict[str, Any], cfg: dict[str, Any]) -> dict[str, Any]:
-    """Execute exactly one structured tool selection on an approved workspace."""
-    if not cfg.get("api_key") or not cfg.get("model"):
-        raise ValueError("missing configured Anthropic account or model")
+    """Execute exactly one structured tool selection, using approved auth."""
+    if not cfg.get("model"):
+        raise ValueError("missing configured Anthropic model")
     payload = {
         "model": cfg["model"],
         "max_tokens": 256,
@@ -108,26 +121,49 @@ def anthropic_decision(request: dict[str, Any], cfg: dict[str, Any]) -> dict[str
         }],
         "tool_choice": {"type": "tool", "name": "submit_decision"},
     }
-    outgoing = urllib.request.Request(
-        ANTHROPIC_MESSAGES_URL, data=json.dumps(payload).encode("utf-8"), method="POST",
-        headers={
-            "content-type": "application/json", "anthropic-version": "2023-06-01",
-            "x-api-key": cfg["api_key"],
-        },
-    )
-    with urllib.request.urlopen(outgoing, timeout=cfg["timeout_s"]) as response:
-        raw = response.read(MAX_RESPONSE_BYTES + 1)
-    if len(raw) > MAX_RESPONSE_BYTES:
-        raise ValueError("model response too large")
-    result = json.loads(raw)
-    tools = [
-        block for block in result.get("content", [])
-        if type(block) is dict and block.get("type") == "tool_use"
-        and block.get("name") == "submit_decision"
-    ]
-    if len(tools) != 1:
+
+    if cfg.get("auth_mode", "wif") == "wif":
+        # Anthropic's official SDK exchanges rotating OIDC identity tokens for
+        # short-lived workspace credentials. Reuse the client across calls,
+        # preserving its credential refresh cache.
+        client = cfg.get("_client")
+        if client is None:
+            from anthropic import Anthropic  # optional installed dependency
+            client = Anthropic(timeout=cfg.get("timeout_s", 30))
+        response = client.messages.create(**payload)
+        content = response.content
+        tools = [
+            getattr(block, "input", None) if not isinstance(block, dict) else block.get("input")
+            for block in content
+            if ((getattr(block, "type", None), getattr(block, "name", None))
+                if not isinstance(block, dict) else (block.get("type"), block.get("name")))
+            == ("tool_use", "submit_decision")
+        ]
+    else:
+        # Explicit development-only key transport; CVP Red Team workspaces
+        # require short-lived workload credentials, so use WIF above there.
+        if not cfg.get("api_key"):
+            raise ValueError("api_key mode is missing its scoped credential")
+        outgoing = urllib.request.Request(
+            ANTHROPIC_MESSAGES_URL, data=json.dumps(payload).encode("utf-8"), method="POST",
+            headers={
+                "content-type": "application/json", "anthropic-version": "2023-06-01",
+                "x-api-key": cfg["api_key"],
+            },
+        )
+        with urllib.request.urlopen(outgoing, timeout=cfg["timeout_s"]) as response:
+            raw = response.read(MAX_RESPONSE_BYTES + 1)
+        if len(raw) > MAX_RESPONSE_BYTES:
+            raise ValueError("model response too large")
+        data = json.loads(raw)
+        tools = [
+            block["input"] for block in data.get("content", [])
+            if type(block) is dict and block.get("type") == "tool_use"
+            and block.get("name") == "submit_decision"
+        ]
+    if len(tools) != 1 or type(tools[0]) is not dict:
         raise ValueError("model did not submit one typed decision")
-    return tools[0]["input"]
+    return tools[0]
 
 
 def answer(request: dict[str, Any], cfg: dict[str, Any]) -> dict[str, Any]:
@@ -139,6 +175,9 @@ def answer(request: dict[str, Any], cfg: dict[str, Any]) -> dict[str, Any]:
 
 def make_bridge(cfg: dict[str, Any]) -> ThreadingHTTPServer:
     cfg = config_from_env(**cfg)
+    if cfg["mode"] == "anthropic" and cfg["auth_mode"] == "wif":
+        from anthropic import Anthropic
+        cfg["_client"] = Anthropic(timeout=cfg["timeout_s"])
     cache: dict[str, tuple[str, dict[str, Any]]] = {}
     lock = threading.Lock()
 

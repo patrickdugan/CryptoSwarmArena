@@ -26,6 +26,11 @@ from typing import Any, Callable
 from .bitvm_social_setup import (
     MASTERS, POSTURES, VECTOR_RECIPES, SocialSetupConfig, social_episode,
 )
+from .bitvm_custody_supply import (
+    RECIPES as CUSTODY_RECIPES,
+    POSTURES as CUSTODY_POSTURES,
+    CustodySupplyConfig, custody_episode,
+)
 DOMAIN = "csa/bitvm-ceremony/v1"
 HOSTS = tuple(f"H{i}" for i in range(5))
 MONITOR = "SENTINEL"
@@ -305,6 +310,7 @@ def run_session(
     provenance: str = "scripted-control",
     run_nonce: str | None = None,
     social_config: SocialSetupConfig | None = None,
+    custody_config: CustodySupplyConfig | None = None,
     monitor_policy: str = "passive",
 ) -> dict[str, Any]:
     """Run one host dialogue, then score the very same decisions on all arms.
@@ -317,6 +323,10 @@ def run_session(
         raise ValueError("monitor policy must be passive or observed-flags")
     if social_config is not None and not isinstance(social_config, SocialSetupConfig):
         raise ValueError("social_config must be a SocialSetupConfig")
+    if custody_config is not None and not isinstance(custody_config, CustodySupplyConfig):
+        raise ValueError("custody_config must be a CustodySupplyConfig")
+    if social_config is not None and custody_config is not None:
+        raise ValueError("select one causal compromise source per episode")
     if run_nonce is None:
         run_nonce = secrets.token_hex(16)
     if type(run_nonce) is not str or re.fullmatch(r"[a-f0-9]{32}", run_nonce) is None:
@@ -329,10 +339,13 @@ def run_session(
     if replay_records is not None and type(replay_records) is not list:
         raise ValueError("replay_records must be a list")
     social = social_episode(seed, social_config) if social_config is not None else None
-    compromised = (
-        tuple(social["adversarial_compromised_hosts"]) if social is not None
-        else _hosts_for_case(case_id, seed, len(case.compromised_hosts))
-    )
+    custody = custody_episode(seed, custody_config) if custody_config is not None else None
+    if social is not None:
+        compromised = tuple(social["adversarial_compromised_hosts"])
+    elif custody is not None:
+        compromised = tuple(custody["adversarial_compromised_hosts"])
+    else:
+        compromised = _hosts_for_case(case_id, seed, len(case.compromised_hosts))
     signals: dict[str, dict[str, Any]] = {}
     votes: dict[str, dict[str, Any]] = {}
     records: list[dict[str, Any]] = []
@@ -374,9 +387,15 @@ def run_session(
         signals[seat] = choose("SIGNAL", seat, _host_view(
             case, seat, int(seat[1:]) in compromised, "SIGNAL", signals
         ))
+    if social is not None:
+        external_telemetry = social["monitor_signals"]
+    elif custody is not None:
+        external_telemetry = custody["monitor_signals"]
+    else:
+        external_telemetry = None
     monitor = choose(
         "MONITOR", MONITOR,
-        _monitor_view(signals, social["monitor_signals"] if social is not None else None)
+        _monitor_view(signals, external_telemetry)
     )
     for seat in HOSTS:
         votes[seat] = choose("AUTHORIZE", seat, _host_view(
@@ -456,8 +475,13 @@ def run_session(
         "source_pin": "patrickdugan/BitVMArena@" + PINNED_BITVM_ARENA,
         "backend_source_git_blob": PINNED_SOURCE_GIT_BLOB,
         "provenance": provenance,
-        "compromise_source": "social-vector-causal" if social is not None else "declared-fixture",
+        "compromise_source": (
+            "social-vector-causal" if social is not None else
+            "custody-wars-causal" if custody is not None else
+            "declared-fixture"
+        ),
         "social_episode": social,
+        "custody_episode": custody,
         "monitor_policy": monitor_policy,
         "referee": {
             "compromised_hosts": list(compromised),
@@ -488,10 +512,17 @@ def replay_session(report: dict[str, Any], *, expected_case: str, expected_seed:
     if social is not None and (type(social) is not dict or type(social.get("config")) is not dict):
         raise ValueError("invalid social episode")
     settings = SocialSetupConfig(**social["config"]) if social is not None else None
+    custody = report.get("custody_episode")
+    if custody is not None and (type(custody) is not dict or type(custody.get("config")) is not dict):
+        raise ValueError("invalid Custody Wars episode")
+    if custody is not None and social is not None:
+        raise ValueError("replay cannot select two compromise sources")
+    custody_settings = CustodySupplyConfig(**custody["config"]) if custody is not None else None
     replayed = run_session(
         expected_case, expected_seed, replay_records=report.get("records"),
         provenance=report.get("provenance", ""), run_nonce=report.get("run_nonce"),
-        social_config=settings, monitor_policy=report.get("monitor_policy", "passive"),
+        social_config=settings, custody_config=custody_settings,
+        monitor_policy=report.get("monitor_policy", "passive"),
     )
     if replayed != report:
         raise ValueError("receipt differs from deterministic replay")
@@ -523,6 +554,11 @@ def main(argv: list[str] | None = None) -> int:
     bench.add_argument("--social-vector", choices=tuple(VECTOR_RECIPES), default="mixed")
     bench.add_argument("--social-master", choices=MASTERS, default="insider_cultivator")
     bench.add_argument("--social-rounds", type=int, default=24)
+    bench.add_argument("--custody-supply", action="store_true",
+                       help="Use real synthetic Custody Wars IMPLANT/SUPPLY/PHISH engine state")
+    bench.add_argument("--custody-recipe", choices=CUSTODY_RECIPES, default="mixed")
+    bench.add_argument("--custody-posture", choices=CUSTODY_POSTURES, default="exposed")
+    bench.add_argument("--custody-turns", type=int, default=16)
     bench.add_argument("--monitor-policy", choices=("passive", "observed-flags"),
                        default="passive")
     replay = commands.add_parser("replay")
@@ -541,14 +577,21 @@ def main(argv: list[str] | None = None) -> int:
                 key = os.environ.get(args.webhook_secret_env, "")
                 agent = WebhookDecider(args.webhook, key)
                 deciders = {seat: agent for seat in SEATS}
+            if args.social and args.custody_supply:
+                raise ValueError("select one social-compromise backend")
             social = SocialSetupConfig(
                 posture=args.social_posture, recipe=args.social_vector,
                 hive_master=args.social_master, rounds=args.social_rounds,
             ) if args.social else None
+            custody = CustodySupplyConfig(
+                recipe=args.custody_recipe, posture=args.custody_posture,
+                turns=args.custody_turns,
+            ) if args.custody_supply else None
             report = run_session(
                 args.case, args.seed, deciders=deciders,
                 provenance="webhook-model" if deciders else args.provenance,
-                social_config=social, monitor_policy=args.monitor_policy,
+                social_config=social, custody_config=custody,
+                monitor_policy=args.monitor_policy,
             )
             _output(args.output, report)
             print(json.dumps({"case": args.case, "compromise_source": report["compromise_source"],

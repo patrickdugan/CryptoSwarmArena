@@ -105,6 +105,26 @@ PYTHONPATH=src python -m spiral_ln.bitvm_ceremony replay \
   --expected-case quorum-covert --expected-seed 11
 ~~~
 
+## Matched posture comparison
+
+The sweep runs the same source-engine seed and fixture under exposed and
+hardened conditions, then repeats each simulated host history with both
+passive and alert-driven monitors. A matched honest ceremony measures
+whether quarantines prevent legitimate settlement.
+
+~~~sh
+PYTHONPATH=src python -m spiral_ln.bitvm_custody_sweep \
+  --seeds 8 --turns 16 --recipe mixed \
+  --postures exposed full-hardening \
+  --monitors passive observed-flags \
+  --output output/custody-posture-sweep-01
+~~~
+
+The output stores each independently replayed receipt, source-event hash,
+reached signing quorum, unauthorized payout, honest payout, missed or
+false-positive quarantines and liveness status. These are measurements of
+scripted game parameters and explicit cryptographic assumptions.
+
 The report includes every submitted abstract order, the original Custody
 Wars resolution trace and alerts, post-turn host control snapshots, a
 directed graph digest, and the final five-host roster. It then records

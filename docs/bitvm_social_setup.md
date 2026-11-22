@@ -157,8 +157,10 @@ and [bitcoin-rs Keyless-CHECKSIG branch](https://github.com/patrickdugan/bitcoin
 are separate sources of native evidence. The causal social simulation
 never elevates its model results to a native Bitcoin security claim.
 
-The underlying Custody Wars engine separately models supply-chain
-implants and compromised developer tooling. Mapping its **executed,
-independently verified host incidents** into this five-host roster is a
-future adapter, because the SwarmCompromiseEnv source used here has
-no direct supply-chain implant vector.
+The [Custody Wars supply-chain adapter](bitvm_custody_supply.md)
+now provides a **second causal source**, using the original
+Custody Wars IMPLANT, directed SUPPLY propagation and PHISH actions.
+That implementation maps vendor and build-pipeline events into distinct
+H0–H4 signing-host authority states, with separate hardened controls.
+A single ceremony selects one causal source so evidence and assumptions
+remain identifiable.

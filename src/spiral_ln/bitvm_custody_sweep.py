@@ -76,6 +76,9 @@ def sweep(
                         "host_controls": len(source["adversarial_compromised_hosts"]),
                         "source_supply_spreads": len(source["supply_host_events"]),
                         "observed_host_warnings": len(source["monitor_signals"]),
+                        "first_quorum_round": source["timing"]["first_quorum_round"],
+                        "first_warning_round": source["timing"]["first_confirmed_warning_round"],
+                        "warning_before_or_at_quorum": source["timing"]["warning_before_or_at_quorum"],
                         "quorum_reached": len(source["adversarial_compromised_hosts"]) >= 3,
                         "true_positive_quarantines": len(episode["referee"]["true_positive_quarantines"]),
                         "false_positive_quarantines": len(episode["referee"]["false_positive_quarantines"]),
@@ -101,6 +104,9 @@ def sweep(
             "n": len(items),
             "quorums": sum(row["quorum_reached"] for row in items),
             "host_control_count": sum(row["host_controls"] for row in items),
+            "quorums_with_confirmed_warning_before_or_at_formation": sum(
+                row["warning_before_or_at_quorum"] for row in items
+            ),
             "unauthorized_presigned": sum(row["presigned"]["attacker_success"] for row in items),
             "unauthorized_keyless": sum(row["keyless"]["attacker_success"] for row in items),
             "legitimate_presigned": sum(row["presigned"]["legitimate_success"] for row in items),

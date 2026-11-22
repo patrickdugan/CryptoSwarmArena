@@ -6,8 +6,10 @@ on:
       - "src/spiral_ln/bitvm_ceremony*.py"
       - "src/spiral_ln/bitvm_social_setup.py"
       - "src/spiral_ln/bitvm_social_sweep.py"
+      - "src/spiral_ln/bitvm_custody_supply.py"
       - "tests/test_bitvm_ceremony.py"
       - "tests/test_bitvm_social_setup.py"
+      - "tests/test_bitvm_custody_supply.py"
       - "docs/bitvm_ceremony.md"
       - ".github/workflows/bitvm-ceremony.yml"
   push:
@@ -43,7 +45,7 @@ jobs:
       - name: Test host isolation, receipts and signed model bridge
         env:
           PYTHONPATH: src
-        run: python -m pytest tests/test_bitvm_ceremony.py tests/test_bitvm_social_setup.py -q
+        run: python -m pytest tests/test_bitvm_ceremony.py tests/test_bitvm_social_setup.py tests/test_bitvm_custody_supply.py -q
       - name: Reproduce and audit a complete synthetic campaign
         env:
           PYTHONPATH: src
@@ -53,6 +55,8 @@ jobs:
           python -m spiral_ln.bitvm_ceremony run --case quorum-covert --seed 23 --social --social-posture baseline_open --social-vector mixed --social-rounds 24 --monitor-policy observed-flags --output output/bitvm-social-ci.json
           python -m spiral_ln.bitvm_ceremony replay output/bitvm-social-ci.json --expected-case quorum-covert --expected-seed 23
           python -m spiral_ln.bitvm_social_sweep --seeds 4 --rounds 18 --output output/bitvm-social-sweep-ci
+          python -m spiral_ln.bitvm_ceremony run --case quorum-covert --seed 11 --custody-supply --custody-recipe mixed --custody-posture exposed --custody-turns 18 --monitor-policy observed-flags --output output/bitvm-custody-ci.json
+          python -m spiral_ln.bitvm_ceremony replay output/bitvm-custody-ci.json --expected-case quorum-covert --expected-seed 11
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -61,4 +65,5 @@ jobs:
             output/bitvm-ceremony-ci.json
             output/bitvm-social-ci.json
             output/bitvm-social-sweep-ci/summary.json
+            output/bitvm-custody-ci.json
           if-no-files-found: ignore

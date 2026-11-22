@@ -240,6 +240,16 @@ applicable provider security requirements. No classifier bypass or entitlement
 change is performed by this bridge. Scripted controls and existing authorized
 code-review models can validate the harness immediately.
 
+## Additional Custody Wars compromise source
+
+The [Custody Wars causal adapter](bitvm_custody_supply.md) extends the existing
+game board with five individual signing hosts, executes real synthetic
+IMPLANT, SUPPLY and PHISH mechanics, and maps only resolved host control into
+the BitVM ceremony. Select it with `--custody-supply`. The older
+`--social` mode remains available for the distinct SwarmCompromiseEnv
+probability model. Each receipt names its compromise source and records the
+corresponding replayable engine evidence.
+
 ## Trust boundaries and native gates
 
 - The current agents share a host process unless operators deploy multiple

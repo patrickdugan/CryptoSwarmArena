@@ -241,6 +241,22 @@ def custody_episode(seed: int, config: CustodySupplyConfig) -> dict[str, Any]:
             # source must remain reconstructible in the saved trace.
             raise AssertionError("credential host lacks executed contact evidence")
 
+    quorum_round = next(
+        (
+            row["turn"] for row in historical_host_control
+            if sum(host["controlled"] for host in row["hosts"]) >= 3
+        ),
+        None,
+    )
+    confirmed_warning_rounds = [
+        row["round"] for row in monitor_signals if row["flagged"]
+    ]
+    warning_round = min(confirmed_warning_rounds, default=None)
+    warning_before_quorum = (
+        quorum_round is not None and warning_round is not None
+        and warning_round <= quorum_round
+    )
+
     body = {
         "schema": SCHEMA, "evidence_level": "synthetic-model",
         "seed": seed, "config": asdict(config),
@@ -253,6 +269,12 @@ def custody_episode(seed: int, config: CustodySupplyConfig) -> dict[str, Any]:
             for i, host in enumerate(HOST_NODES)
         ],
         "monitor_signals": monitor_signals,
+        "timing": {
+            "first_quorum_round": quorum_round,
+            "first_confirmed_warning_round": warning_round,
+            "warning_before_or_at_quorum": warning_before_quorum,
+            "turns_observed": config.turns,
+        },
         "supply_host_events": root_to_host,
         "historical_host_control": historical_host_control,
         "attempts": attempts, "events": events,

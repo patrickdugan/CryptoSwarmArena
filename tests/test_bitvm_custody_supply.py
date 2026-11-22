@@ -35,6 +35,17 @@ def test_real_engine_resolves_each_recipe_and_receipts_replay(recipe):
         assert len(receipt["attempts"]) == 12
         assert len(receipt["historical_host_control"]) == 12
         assert cws.replay_custody_episode(receipt) == receipt
+        timing = receipt["timing"]
+        assert timing["turns_observed"] == 12
+        if timing["first_quorum_round"] is not None:
+            assert 0 <= timing["first_quorum_round"] < 12
+        if timing["first_confirmed_warning_round"] is not None:
+            assert 0 <= timing["first_confirmed_warning_round"] < 12
+        assert timing["warning_before_or_at_quorum"] is (
+            timing["first_quorum_round"] is not None
+            and timing["first_confirmed_warning_round"] is not None
+            and timing["first_confirmed_warning_round"] <= timing["first_quorum_round"]
+        )
         for i in receipt["adversarial_compromised_hosts"]:
             assert i in range(5)
             assert receipt["host_control"][i]["controlled"] is True
@@ -194,6 +205,10 @@ def test_matched_custody_sweep_replays_and_separates_safety_from_liveness():
     assert report["episodes"] == 3 * 2 * 2 * 2
     assert len(report["summary"]) == 8
     assert report["evidence_level"] == "synthetic-model"
+    assert all(
+        0 <= group["quorums_with_confirmed_warning_before_or_at_formation"] <= group["quorums"]
+        for group in report["summary"].values()
+    )
     by_source = {}
     for row in report["rows"]:
         pair = (row["seed"], row["posture"])

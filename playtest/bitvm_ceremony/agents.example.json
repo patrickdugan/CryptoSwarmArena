@@ -1,0 +1,26 @@
+{
+  "H0": {
+    "url": "http://127.0.0.1:8790/decide",
+    "secret_env": "CSA_CEREMONY_HOST_0_SECRET"
+  },
+  "H1": {
+    "url": "http://127.0.0.1:8791/decide",
+    "secret_env": "CSA_CEREMONY_HOST_1_SECRET"
+  },
+  "H2": {
+    "url": "http://127.0.0.1:8792/decide",
+    "secret_env": "CSA_CEREMONY_HOST_2_SECRET"
+  },
+  "H3": {
+    "url": "http://127.0.0.1:8793/decide",
+    "secret_env": "CSA_CEREMONY_HOST_3_SECRET"
+  },
+  "H4": {
+    "url": "http://127.0.0.1:8794/decide",
+    "secret_env": "CSA_CEREMONY_HOST_4_SECRET"
+  },
+  "SENTINEL": {
+    "url": "http://127.0.0.1:8795/decide",
+    "secret_env": "CSA_CEREMONY_HOST_5_SECRET"
+  }
+}

@@ -184,3 +184,48 @@ def test_world_rule_code_must_match_pinned_source(monkeypatch):
     monkeypatch.setitem(cws.SOURCE_BLOBS, "engine", "0" * 40)
     with pytest.raises(RuntimeError, match="source hash"):
         cws.custody_episode(1, cws.CustodySupplyConfig(turns=1))
+
+
+
+def test_matched_custody_sweep_replays_and_separates_safety_from_liveness():
+    from spiral_ln.bitvm_custody_sweep import sweep
+
+    report = sweep(seeds=3, turns=12)
+    assert report["episodes"] == 3 * 2 * 2 * 2
+    assert len(report["summary"]) == 8
+    assert report["evidence_level"] == "synthetic-model"
+    by_source = {}
+    for row in report["rows"]:
+        pair = (row["seed"], row["posture"])
+        by_source.setdefault(pair, row["source_hash"])
+        assert row["source_hash"] == by_source[pair]
+        assert row["fallbacks"] == 0
+        assert row["host_controls"] in range(6)
+        assert row["presigned"]["authorized_sats"] + row["presigned"]["unauthorized_sats"] + row["presigned"]["escrow_sats"] == 100_000
+        assert row["keyless"]["attacker_success"] is False
+        if row["posture"] == "full-hardening":
+            assert not row["quorum_reached"]
+        if row["case"] == "quorum-covert" and not row["quorum_reached"]:
+            assert row["presigned"]["attacker_success"] is False
+    assert report == sweep(seeds=3, turns=12)
+
+
+def test_custody_sweep_rejects_bad_configuration_and_overwrite(tmp_path):
+    from spiral_ln.bitvm_custody_sweep import sweep
+
+    invalid = (
+        {"seeds": 0}, {"seeds": True}, {"seeds": 99},
+        {"postures": ("exposed", "exposed")},
+        {"monitors": ("invented",)}, {"turns": 500},
+    )
+    for changes in invalid:
+        with pytest.raises(ValueError):
+            sweep(**changes)
+
+    directory = tmp_path / "custody-run"
+    first = sweep(seeds=1, turns=5, output=directory)
+    assert first["episodes"] == 8
+    assert (directory / "summary.json").is_file()
+    assert (directory / "receipts" / "0.exposed.passive.honest.json").is_file()
+    with pytest.raises(ValueError, match="overwrite"):
+        sweep(seeds=1, turns=5, output=directory)
